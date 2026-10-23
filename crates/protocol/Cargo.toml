@@ -1,0 +1,12 @@
+[package]
+name = "n3dsr-protocol"
+description = "Java Edition's packets, as types and codecs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[features]
+default = ["mc1_21_11"]
+mc1_21_11 = []

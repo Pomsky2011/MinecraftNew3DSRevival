@@ -1,0 +1,15 @@
+[package]
+name = "n3dsr-core"
+description = "The game: registries, blocks, chunks, the world, entities, ticking, world generation, saves"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# One feature per build base (DESIGN.md §5.6); exactly one is on per build, which build.rs checks.
+# The default is the release being built first; another is chosen with
+# `--no-default-features --features mc1_X_Y`.
+[features]
+default = ["mc1_21_11"]
+mc1_21_11 = []

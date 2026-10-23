@@ -1,0 +1,16 @@
+[package]
+name = "n3dsr-client"
+description = "Rendering, input, sound and the interface on the 3DS; speaks n3dsr-protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+n3dsr-server = { path = "../server", default-features = false }
+n3dsr-protocol = { path = "../protocol", default-features = false }
+
+[features]
+default = ["mc1_21_11"]
+mc1_21_11 = ["n3dsr-server/mc1_21_11", "n3dsr-protocol/mc1_21_11"]

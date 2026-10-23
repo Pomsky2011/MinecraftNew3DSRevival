@@ -1,0 +1,16 @@
+[package]
+name = "n3dsr-server"
+description = "The integrated server: n3dsr-core driven at 20 ticks a second, speaking n3dsr-protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+n3dsr-core = { path = "../core", default-features = false }
+n3dsr-protocol = { path = "../protocol", default-features = false }
+
+[features]
+default = ["mc1_21_11"]
+mc1_21_11 = ["n3dsr-core/mc1_21_11", "n3dsr-protocol/mc1_21_11"]

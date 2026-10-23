@@ -1,0 +1,13 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+# The client only builds for the 3DS (`cargo 3ds build -p n3dsr-client`); everything else builds
+# and tests on the PC with a plain `cargo test`.
+default-members = ["crates/core", "crates/protocol", "crates/server", "crates/build"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/Pomsky2011/MinecraftNew3DSRevival"
+publish = false

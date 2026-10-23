@@ -89,10 +89,13 @@ for the data, the server jar where it differs), checked against the manifest's S
 | Crate | Runs on | Holds |
 | --- | --- | --- |
 | `n3dsr-build` | PC | §3 |
-| `core` | 3DS and PC | the game: registries, blocks, chunks, the world, entities, ticking, world generation, saves. No 3DS code: it builds and tests on a PC (§11). |
-| `protocol` | 3DS and PC | Java's packets, as types and codecs |
-| `server` | 3DS and PC | the integrated server: `core` driven at 20 ticks a second, speaking `protocol` |
-| `client` | 3DS | rendering, input, sound, the interface; speaks `protocol` |
+| `n3dsr-core` | 3DS and PC | the game: registries, blocks, chunks, the world, entities, ticking, world generation, saves. No 3DS code: it builds and tests on a PC (§11). |
+| `n3dsr-protocol` | 3DS and PC | Java's packets, as types and codecs |
+| `n3dsr-server` | 3DS and PC | the integrated server: `core` driven at 20 ticks a second, speaking `protocol` |
+| `n3dsr-client` | 3DS | rendering, input, sound, the interface; speaks `protocol` |
+
+Packages are prefixed `n3dsr-` (a crate named `core` would clash with Rust's own); the text below
+uses the short names.
 
 4.2. **Singleplayer is a client and an integrated server in one process**, as in Java: the
 server's thread runs the world, and client and server exchange `protocol`'s messages through an
@@ -132,8 +135,8 @@ build base, the build tool passing the version to `cargo`, and version-specific 
 `cfg`, so the 3DS binary carries only its own release's behaviour. **One Cargo feature per
 release** (decided §13), never per range: a behaviour spanning releases is gated on every feature
 in its span (`any(...)`), not on a range alias, so what a build contains is always readable from
-the release alone. Exactly one release feature is on per build; the build fails otherwise. The
-feature's spelling (`1.21.11` is not a valid feature name) is settled with the first crate. Tests run per
+the release alone. Exactly one release feature is on per build; the build fails otherwise.
+Features are spelled `mc1_21_11` (decided §13; dots aren't allowed in feature names). Tests run per
 build base (§11.2).
 
 5.5. Floating point: Java's `float`/`double` semantics (IEEE 754, no fused multiply-add where Java
@@ -241,6 +244,8 @@ emulator, per step.
   mappings (§2.3).
 - 2026-10-23 (user): mappings only under CC0, MIT, BSD, GPL or MPL: Yarn and Feather, not MCP
   (§2.3); one Cargo feature per release (§5.6).
+- 2026-10-23 (user): features spelled `mc1_21_11`; development starts with §14 step 1 and `core`'s
+  foundations (Java's random generators) in parallel.
 
 ## 14. Steps
 

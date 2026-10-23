@@ -4,10 +4,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Design only: no code, no build system, no tests yet. `DESIGN.md` is the spec (a draft, written
-with RFC 2119 MUST/SHOULD wording); `PARITY.md` lists deliberate deviations from Java Edition.
-The next piece of work is `DESIGN.md` §14 step 1 (a Rust app on ctru-rs drawing a textured cube
-through citro3d). When a build, test or lint command comes into being, add it here.
+Early: the workspace skeleton exists and `n3dsr-core` has `JavaRandom` (`java.util.Random`,
+bit-exact). `DESIGN.md` is the spec (a draft, RFC 2119 MUST/SHOULD wording); `PARITY.md` lists
+deliberate deviations from Java Edition. In progress: `DESIGN.md` §14 step 1 (a ctru-rs app
+drawing a textured cube through citro3d) alongside `core`'s foundations on the PC.
+
+## Commands
+
+```sh
+cargo test                                   # all PC crates (the client is excluded by default-members)
+cargo test -p n3dsr-core --test java_random  # one test file; add a test name to filter further
+cargo clippy --all-targets && cargo fmt --check
+cargo test --no-default-features --features mc1_X_Y   # another build base, once it exists
+java tools/vectors/JavaRandomVectors.java > crates/core/tests/data/java_random.txt  # regenerate vectors
+```
+
+The 3DS client needs devkitPro (`3ds-dev`, `$DEVKITPRO` set) and `cargo-3ds`; its commands go
+here once step 1 lands.
+
+Test vectors come from running the real thing (the JDK, or later a vanilla jar) through small
+Java programs in `tools/vectors/`; their output is committed under `crates/*/tests/data/`, and
+the Rust tests replay it. Floats are compared as raw bits.
 
 ## What the project is
 
@@ -28,8 +45,11 @@ used, so never MCP; no mappings are ever committed or needed by the build).
 The build base is **chosen at compile time**: one binary per base, the build tool passing the
 version to `cargo`, version-specific code behind `cfg`. **One Cargo feature per release**, never
 per range: behaviour spanning releases is gated with `any(...)` over each release's feature.
-Exactly one release feature per build. Don't add run-time version branching. `PARITY.md` entries carry a release range (`1.13–`, `1.13–1.17.1`) saying which build
-bases each kept/fixed bug applies to.
+Features are spelled `mc1_21_11`. Exactly one release feature per build: `crates/core/build.rs`
+fails the build otherwise, and `mc1_21_11` is the default feature in each crate (another base
+needs `--no-default-features`). Crates above `core` forward their release features down. Don't
+add run-time version branching. `PARITY.md` entries carry a release range (`1.13–`,
+`1.13–1.17.1`) saying which build bases each kept/fixed bug applies to.
 
 ## Rules that are easy to break
 
@@ -51,17 +71,18 @@ bases each kept/fixed bug applies to.
 - Decisions go in `DESIGN.md` §13 with a date; open questions in §12. Don't settle a §12 question
   silently in code — raise it.
 
-## Planned architecture (`DESIGN.md` §4)
+## Architecture (`DESIGN.md` §4)
 
-One Cargo workspace:
+One Cargo workspace, crates under `crates/<short>/`, packages named `n3dsr-<short>` (a package
+can't be called `core` without clashing with Rust's `core`):
 
 | Crate | Runs on | Role |
 | --- | --- | --- |
 | `n3dsr-build` | PC | Microsoft device-code sign-in → Xbox Live → XSTS → MC services; ownership check; download jar per Mojang's version manifest (SHA-1 checked); convert assets into RomFS (texture atlases in PICA200 formats, baked block-model quads, ADPCM/Vorbis audio, data packs compiled to binary tables, density functions compiled to bytecode); then build `.3dsx`/`.cia` |
-| `core` | 3DS + PC | The game itself: registries, chunks, world, entities, ticking, worldgen, saves. **Must contain no 3DS-specific code** so it builds and tests on a PC |
-| `protocol` | 3DS + PC | Java's packets as types and codecs |
-| `server` | 3DS + PC | Integrated server: `core` at 20 TPS, speaking `protocol` |
-| `client` | 3DS | citro3d rendering (via FFI or `citro3d` Rust bindings — undecided), input, `ndsp` sound, UI |
+| `n3dsr-core` | 3DS + PC | The game itself: registries, chunks, world, entities, ticking, worldgen, saves. **Must contain no 3DS-specific code** so it builds and tests on a PC |
+| `n3dsr-protocol` | 3DS + PC | Java's packets as types and codecs |
+| `n3dsr-server` | 3DS + PC | Integrated server: `core` at 20 TPS, speaking `protocol` |
+| `n3dsr-client` | 3DS | citro3d rendering (via FFI or `citro3d` Rust bindings — undecided), input, `ndsp` sound, UI |
 
 Singleplayer = client + integrated server in one process, exchanging `protocol` messages over an
 in-memory queue (as Java does). Multiplayer swaps the queue for a socket; nothing else changes —
@@ -71,7 +92,7 @@ Worldgen and lighting run as background jobs a chunk at a time, never inside a t
 Worlds are saved in Java's Anvil format (region `.mca` files, NBT, `level.dat`) under
 `/3ds/n3dsr/saves/` so a world folder copies between PC and 3DS unchanged.
 
-## Testing (planned, `DESIGN.md` §11)
+## Testing (`DESIGN.md` §11)
 
 `core`/`protocol`/`server` are tested on the PC. Parity tests compare our chunks block-by-block
 against a headless vanilla server run from the player's own server jar for chosen seeds, and
