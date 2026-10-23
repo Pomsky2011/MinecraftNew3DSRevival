@@ -9,8 +9,15 @@ RFC 2119.
 
 1.1. **A Minecraft for the New Nintendo 3DS (and New 2DS XL) that behaves like Java Edition**:
 the same blocks, items, mobs, crafting, redstone, fluids and world generation (the same world from
-the same seed), first as Java 1.21.11, then following Java's releases (26.1 onward). Behaviour is
-the measure, not looks: rendering and the interface are the 3DS's own (§7, §8).
+the same seed). Behaviour is the measure, not looks: rendering and the interface are the 3DS's own
+(§7, §8).
+
+1.1.1. **Build bases: any Java release from 1.13 onward.** The player picks a release when building
+(§3), and the game behaves as that release: its blocks, its world generation, its saves, its
+protocol. 1.21.11 comes first; older releases are added after it, and new ones as Java publishes
+them (26.1 onward). 1.12.2 and earlier are not supported: 1.13 ("the Flattening", data version
+1519) reorganised block states, item IDs, the save format and the data layout, and everything here
+is built on the post-1.13 structure.
 
 1.2. **Bugs players rely on are kept, the others fixed.** Kept: breaking bedrock (piston and TNT
 methods), TNT duplication, quasi-connectivity, and whatever else technical players build on; the
@@ -23,8 +30,8 @@ come after (§9), sharing the same core.
 1.4. **Java's worlds**: worlds are saved in Java's format (§6), so a world moves between a PC and
 the 3DS by copying its folder.
 
-1.5. **Not targeted**: the original 3DS and 2DS (a third of the CPU, half the memory); Bedrock
-Edition's servers or worlds; mods.
+1.5. **Not targeted**: the original 3DS and 2DS (a third of the CPU, half the memory); Java 1.12.2
+and earlier (§1.1.1); Bedrock Edition's servers or worlds; mods.
 
 ## 2. What we ship, and what you bring
 
@@ -37,7 +44,8 @@ signs in (§3.1) and checks the account's entitlements before it downloads anyth
 ownership it stops.
 
 2.3. **Behaviour is reimplemented, not copied.** Java Edition is unobfuscated since 26.1 (2025),
-so how vanilla works can be read. Our code is written from that understanding, in our own
+and Mojang has published official mappings since 1.14.4, so how vanilla works can be read for
+nearly every build base; 1.13 to 1.14.3 have no official mappings (§12). Our code is written from that understanding, in our own
 structure and in Rust, never translated line by line from Mojang's. Where vanilla's behaviour is
 data (§3.3), we read the data from the player's jar instead of rewriting it.
 
@@ -50,7 +58,7 @@ assets and is never redistributed.
 Xbox Live, XSTS, and Minecraft services, as launchers do; the entitlement check (§2.2) reads the
 account's licenses. Tokens are kept in the user's config directory, refreshed, never logged.
 
-3.2. **Download**: the chosen version's entry in Mojang's version manifest, its client jar (and,
+3.2. **Download**: the chosen version's (1.13 or later, §1.1.1) entry in Mojang's version manifest, its client jar (and,
 for the data, the server jar where it differs), checked against the manifest's SHA-1s, cached.
 
 3.3. **Convert**, everything the 3DS needs from the jar, into the app's RomFS:
@@ -61,7 +69,10 @@ for the data, the server jar where it differs), checked against the manifest's S
   §8.3);
 - data packs (world generation's noise settings, density functions, biomes, structures, features;
   loot tables; recipes; tags; advancements): compiled into compact binary tables, and density
-  functions into a small bytecode the core interprets (§5.4);
+  functions into a small bytecode the core interprets (§5.4). Only from 1.18.2 is world
+  generation's noise data in the jar; 1.16.2 to 1.18.1 have biomes, features and noise settings as
+  data but the noise itself in code, and 1.13 to 1.16.1 have it all in code. For those, `core`
+  carries the generator itself (§5.4);
 - registries and language files.
 
 3.4. **Build**: the converted assets, then the app (`cargo` for the 3DS target, §10), into a
@@ -97,7 +108,7 @@ threads on, and how much of the system core it can have, is open (§12).
 Java's minimum is 5). When a tick runs long the game slows, as Java's does, rather than skipping
 work: behaviour is exact before it is fast.
 
-5.2. **Exact randomness**: `java.util.Random`'s LCG, Xoroshiro128++ and their seeding (positional
+5.2. **Exact randomness**: `java.util.Random`'s LCG, Xoroshiro128++ (1.18 onward) and their seeding (positional
 random factories included) reimplemented bit for bit, since world generation and many behaviours
 depend on their exact sequence.
 
@@ -108,7 +119,12 @@ included, §1.2).
 5.4. **World generation from the data** (§3.3): noise router, density functions (as bytecode),
 surface rules, carvers, features and structures, by Java's chunk stages (structure starts,
 references, biomes, noise, surface, carvers, features, light). The same seed MUST give the same
-blocks as Java (§11.2).
+blocks as Java of the build base (§11.2). Before 1.18.2 the generator is code, not data (§3.3):
+`core` reimplements each era's (1.13–1.17, 1.18–1.18.1) as its own generator.
+
+5.6. **Per-version behaviour**: where releases differ (world generation, mechanics, the bugs of
+§1.2), `core` follows the build base. How the versions are told apart in code, compiled in or
+chosen at run time, is open (§12).
 
 5.5. Floating point: Java's `float`/`double` semantics (IEEE 754, no fused multiply-add where Java
 has none), and `StrictMath` where Java uses it, so physics and generation round as Java's do. The
@@ -116,11 +132,11 @@ has none), and `StrictMath` where Java uses it, so physics and generation round 
 
 ## 6. Worlds
 
-6.1. **Java's format**: a world folder of `level.dat`, region files (`.mca`, Anvil: chunks as
-zlib-compressed NBT, sectors of 4 KiB), entity and POI regions, player data; the data version of
-the release played. On the SD card under `/3ds/n3dsr/saves/`.
+6.1. **Java's format**, as the build base writes it: a world folder of `level.dat`, region files
+(`.mca`, Anvil: chunks as zlib-compressed NBT, sectors of 4 KiB), POI regions (1.14 onward),
+entity regions (1.17 onward), player data; the data version of the build base. On the SD card under `/3ds/n3dsr/saves/`.
 
-6.2. A world from a newer Java release is refused, not opened (as Java does); an older one is
+6.2. A world from a release newer than the build base is refused, not opened (as Java does); an older one is
 upgraded by the same data fixes Java applies, as far as we implement them, and otherwise refused.
 
 ## 7. Rendering (`client`)
@@ -149,8 +165,8 @@ use, ZR attack, L/R hotbar, A jump, B sneak, X inventory, Y drop; all rebindable
 
 ## 9. Java servers (after singleplayer)
 
-9.1. One protocol version at a time, the release played (1.21.11: protocol 774, to confirm).
-Handshake, status, login, configuration (registries from the server), play.
+9.1. One protocol version at a time: the build base's (1.21.11: protocol 774, to confirm; 1.13:
+393). Handshake, status, login, configuration (1.20.2 onward; registries from the server), play.
 
 9.2. **Sign-in on the 3DS**: the device-code flow on the 3DS itself (the code shown on screen,
 typed in on a phone or PC), tokens kept on the SD card and refreshed (decided §13). Online-mode
@@ -177,7 +193,7 @@ of Minecraft (§2.2).
 
 11.1. `core`, `protocol` and `server` build and test on the PC; nothing in them knows the 3DS.
 
-11.2. **Parity tests against vanilla**: for chosen seeds, chunks generated by a vanilla server
+11.2. **Parity tests against vanilla**, per supported build base: for chosen seeds, chunks generated by a vanilla server
 (headless, from the player's own server jar) are compared block by block with ours; redstone and
 physics cases are recorded from vanilla (a contraption's states tick by tick, an entity's
 positions) and replayed against `core`.
@@ -194,7 +210,15 @@ emulator, per step.
 - Whether 1.18+ world generation can run fast enough to keep ahead of walking (and flying) speed
   at a small render distance, and what to do when it can't.
 - How far back worlds are upgraded (§6.2).
-- Which releases after 1.21.11 to follow, and how quickly.
+- Which releases after 1.21.11 to follow, and how quickly; in what order the older build bases
+  (1.13–1.21.10) are added.
+- How `core` holds per-version behaviour (§5.6): one binary per build base with the version chosen
+  at compile time (Cargo features, `cfg`), or one binary branching at run time on data the build
+  tool supplies. Compile time keeps the 3DS binary small and fast; run time keeps one code path to
+  test.
+- Whether `PARITY.md` lists kept and fixed bugs per build base (a bug may exist only in some
+  releases).
+- How to read 1.13 to 1.14.3, which have no official mappings (§2.3).
 
 ## 13. Decisions
 
@@ -206,6 +230,9 @@ emulator, per step.
   control over what is sent; GPL-3.0.
 - 2026-10-22: GPL-3.0-or-later (the FSF's recommended form; `-only` if preferred); the original 3DS
   not targeted (§1.5); worlds in Java's format (§6).
+- 2026-10-23 (user): build bases are every Java release from 1.13 onward, and the game behaves as
+  the chosen one (§1.1.1); 1.12.2 and earlier unsupported (the Flattening reorganised the data).
+  1.21.11 first.
 
 ## 14. Steps
 
@@ -220,7 +247,8 @@ Each step its own commit, its tests passing.
    recorded vanilla traces.
 5. **Blocks and items**: breaking, placing, the inventory, crafting from the recipes.
 6. **Ticking**: block updates, redstone, fluids, random ticks, in Java's order; the parity cases.
-7. **World generation**: superflat, then noise; seed parity tests (§11.2).
+7. **World generation**: superflat, then noise; seed parity tests (§11.2). For 1.21.11 first.
 8. **Entities and mobs**: AI, spawning, combat, the loot tables.
 9. **Saving** (§6), so a world goes back to the PC.
 10. **Java servers** (§9).
+11. **Older build bases** (§1.1.1): back towards 1.13, each with its own parity tests.
