@@ -21,12 +21,14 @@ implemented first, older bases later. **1.12.2 and earlier are unsupported** (th
 reorganised block states, IDs, saves and data), so never add pre-1.13 paths. Version-specific
 facts matter: worldgen noise is only data from 1.18.2 (earlier generators must be written in
 `core`), Xoroshiro128++ is 1.18+, POI regions 1.14+, entity regions 1.17+, the configuration
-protocol phase 1.20.2+, official mappings 1.14.4+ (1.13–1.14.3 are read via unofficial community
-mappings; no mappings are ever committed or needed by the build).
+protocol phase 1.20.2+, official mappings 1.14.4+ (1.13–1.14.3 are read via community mappings:
+Feather for 1.13.x, Yarn for 1.14–1.14.3; only CC0/MIT/BSD/GPL/MPL-licensed mappings may be
+used, so never MCP; no mappings are ever committed or needed by the build).
 
 The build base is **chosen at compile time**: one binary per base, the build tool passing the
-version to `cargo`, version-specific code behind `cfg`/Cargo features. Don't add run-time version
-branching. `PARITY.md` entries carry a release range (`1.13–`, `1.13–1.17.1`) saying which build
+version to `cargo`, version-specific code behind `cfg`. **One Cargo feature per release**, never
+per range: behaviour spanning releases is gated with `any(...)` over each release's feature.
+Exactly one release feature per build. Don't add run-time version branching. `PARITY.md` entries carry a release range (`1.13–`, `1.13–1.17.1`) saying which build
 bases each kept/fixed bug applies to.
 
 ## Rules that are easy to break
