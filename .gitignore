@@ -1,0 +1,6 @@
+/target
+# What the build tool extracts from your own copy of Minecraft: never committed or shipped.
+/assets
+*.3dsx
+*.cia
+*.smdh
