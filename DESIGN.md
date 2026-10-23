@@ -45,7 +45,10 @@ ownership it stops.
 
 2.3. **Behaviour is reimplemented, not copied.** Java Edition is unobfuscated since 26.1 (2025),
 and Mojang has published official mappings since 1.14.4, so how vanilla works can be read for
-nearly every build base; 1.13 to 1.14.3 have no official mappings (§12). Our code is written from that understanding, in our own
+nearly every build base. 1.13, 1.13.1, 1.13.2, 1.14, 1.14.1, 1.14.2 and 1.14.3 have no official
+mappings and are read through unofficial, community-made ones (candidates: MCP for 1.13.x, Yarn
+for 1.14.x; which set for each is open, §12). Mappings of any kind are only for reading: none are
+committed, shipped or needed by the build. Our code is written from that understanding, in our own
 structure and in Rust, never translated line by line from Mojang's. Where vanilla's behaviour is
 data (§3.3), we read the data from the player's jar instead of rewriting it.
 
@@ -123,8 +126,10 @@ blocks as Java of the build base (§11.2). Before 1.18.2 the generator is code, 
 `core` reimplements each era's (1.13–1.17, 1.18–1.18.1) as its own generator.
 
 5.6. **Per-version behaviour**: where releases differ (world generation, mechanics, the bugs of
-§1.2), `core` follows the build base. How the versions are told apart in code, compiled in or
-chosen at run time, is open (§12).
+§1.2), `core` follows the build base, **chosen at compile time** (decided §13): one binary per
+build base, the build tool passing the version to `cargo`, and version-specific code selected with
+`cfg` (Cargo features), so the 3DS binary carries only its own release's behaviour. Tests run per
+build base (§11.2).
 
 5.5. Floating point: Java's `float`/`double` semantics (IEEE 754, no fused multiply-add where Java
 has none), and `StrictMath` where Java uses it, so physics and generation round as Java's do. The
@@ -212,13 +217,10 @@ emulator, per step.
 - How far back worlds are upgraded (§6.2).
 - Which releases after 1.21.11 to follow, and how quickly; in what order the older build bases
   (1.13–1.21.10) are added.
-- How `core` holds per-version behaviour (§5.6): one binary per build base with the version chosen
-  at compile time (Cargo features, `cfg`), or one binary branching at run time on data the build
-  tool supplies. Compile time keeps the 3DS binary small and fast; run time keeps one code path to
-  test.
-- Whether `PARITY.md` lists kept and fixed bugs per build base (a bug may exist only in some
-  releases).
-- How to read 1.13 to 1.14.3, which have no official mappings (§2.3).
+- Which unofficial mappings to read 1.13 to 1.14.3 with (§2.3), and whether their licences
+  matter when they are only read, never shipped.
+- How the compile-time version selection (§5.6) is spelled: one Cargo feature per release, or per
+  range of releases that behave alike, and how a range is named.
 
 ## 13. Decisions
 
@@ -233,6 +235,9 @@ emulator, per step.
 - 2026-10-23 (user): build bases are every Java release from 1.13 onward, and the game behaves as
   the chosen one (§1.1.1); 1.12.2 and earlier unsupported (the Flattening reorganised the data).
   1.21.11 first.
+- 2026-10-23 (user): the build base is chosen at compile time (§5.6); `PARITY.md` tracks kept and
+  fixed bugs with the releases each applies to; 1.13 to 1.14.3 are read through unofficial
+  mappings (§2.3).
 
 ## 14. Steps
 
