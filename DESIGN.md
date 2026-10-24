@@ -36,15 +36,18 @@ and earlier (§1.1.1); Bedrock Edition's servers or worlds; mods.
 ## 2. What we ship, and what you bring
 
 2.1. **This project ships no Mojang code and no Mojang assets.** Its own code is GPL-3.0-or-later.
-Textures, sounds, models, language files and data packs are Mojang's: each player exports them
-from their own copy of the game, running, with a mod of ours (§3).
+Textures, sounds, models, language files and data packs are Mojang's: each player's build reads
+them from their own installed copy of the game, once a mod of ours has confirmed they own it (§3).
 
-2.2. **The export needs a game signed in to an account that owns Minecraft: Java Edition.** The
-export mod (§3.1) runs inside the player's own game, launched by their own launcher, so it never
-signs in itself: it asks Mojang's servers, with the game's session, whether that account owns the
-game, and exports nothing otherwise. An offline or cracked launch can't export (decided §13).
-Signing in from a tool of our own was dropped: Mojang serves its API only to Azure apps it has
-approved, by a review with no stated timeline (§12).
+2.2. **The build needs a game signed in to an account that owns Minecraft: Java Edition.** The
+mod (§3.1) runs inside the player's own game, launched by their own launcher, and checks
+ownership exactly as an online-mode server does: the game's own code sends Mojang's session
+server a `join`, and the public `hasJoined` endpoint confirms the account has a Java Edition
+profile. No token of the player's is handled by our code, and no API is called that vanilla
+doesn't call. An offline or cracked launch can't pass (decided §13). Signing in from a tool of
+our own was dropped: Mojang serves its API only to Azure apps it has approved, by a review with
+no stated timeline (§12). The proof the mod writes is a checkpoint, not DRM: it can be forged by
+hand, and isn't meant to stop someone determined to.
 
 2.3. **Behaviour is reimplemented, not copied.** Java Edition is unobfuscated since 26.1 (2025),
 and Mojang has published official mappings since 1.14.4, so how vanilla works can be read for
@@ -61,37 +64,35 @@ assets and is never redistributed.
 
 ## 3. Export and build
 
-Two parts (decided §13): a mod that exports from the running game, and a converter the player
-runs on the export afterwards.
+Two parts (decided §13): a mod that confirms ownership from inside the running game, and a
+converter the player runs afterwards on the game files the player's launcher installed.
 
-3.1. **The export mod (`n3dsr-export`)**, one build per release, on the Fabric Loader family:
-Fabric for 1.14 onward, Legacy Fabric for 1.13.2, Ornithe for 1.13 and 1.13.1 (neither of the
-others reaches them). It:
-- shows in Mod Menu (and the like); opening its config screen starts the export setup. It also
-  exports on a client command (`/n3dsr export`), and on a launch argument, exporting at the title
-  screen and quitting, for scripts and for building many releases in a row;
-- checks ownership first (§2.2);
-- writes out what the game has loaded, resource packs applied: textures, block models and
-  blockstates as the game resolved them, sounds and language files, registries, and the data
-  packs' contents, into an export folder, with a manifest saying which release, which packs, and
-  what each file is.
+3.1. **The mod (`n3dsr-export`)**, one build per release, on the Fabric Loader family: Fabric for
+1.14 onward, Legacy Fabric for 1.13.2, Ornithe for 1.13 and 1.13.1 (neither of the others reaches
+them). It does only what proving ownership needs (decided §13):
+- it shows in Mod Menu (and the like), and opening its config screen starts the build setup; it
+  also runs on a client command (`/n3dsr export`), and on a launch argument, at the title screen
+  and then quitting, for scripts and for building many releases in a row;
+- it checks ownership (§2.2);
+- it writes a proof file: the account's name and UUID, the release, the time, and the paths and
+  SHA-1s of the client jar and asset index the game is running from (and where the asset objects
+  are), and tells the player the `n3dsr-build` command to run next.
 
-The game has already parsed and resolved its resources by the title screen, so the mod exports
-them instead of `n3dsr-build` parsing each release's jar itself.
+3.1.1. **The mod is Rust** (decided §13): compiled to JVM bytecode by `rustc_codegen_jvm`, which
+can call Java classes, so the Rust calls the game's own classes directly. Java only where Fabric
+requires a JVM class of its own shape: entrypoints and mixins. Stonecutter builds the mod per
+release and switches its Java between releases; the Rust uses the same per-release Cargo
+features as `core` (§5.6). Before 26.1 the game's classes run under Fabric's intermediary names,
+so the Rust's jar is remapped to them with Fabric's tiny-remapper, as Loom remaps a Java mod's.
+Step 2a works out the plumbing (§14).
 
-3.1.1. **The mod is Rust where possible** (decided §13): compiled to JVM bytecode by
-`rustc_codegen_jvm`, which can call Java classes, so Rust reads the game's objects directly. Java
-only where Fabric requires a JVM class of its own shape: entrypoints and mixins. Stonecutter
-builds the mod per release and switches its Java between releases; the Rust uses the same
-per-release Cargo features as `core` (§5.6). Before 26.1 the game's classes run under Fabric's
-intermediary names, so the Rust's jar is remapped to them with Fabric's tiny-remapper, as Loom
-remaps a Java mod's. Whether this holds up is step 2a's spike (§14); if it doesn't, the mod is
-Java and only the converter is Rust.
+3.2. **The converter (`n3dsr-build`, Rust, on the PC)** takes a proof file, checks the jar and
+asset index against the SHA-1s in it, and reads the game's files from where the player's launcher
+installed them: the client jar, and the asset objects (sounds, and all language files but
+`en_us`, which aren't in the jar). It downloads nothing. Since it parses the jar itself, it parses
+each release's formats itself.
 
-3.2. **The converter (`n3dsr-build`, Rust, on the PC)** reads an export folder; the player runs
-it after exporting (the mod tells them the command).
-
-3.3. **Convert**, everything the 3DS needs from the export, into the app's RomFS:
+3.3. **Convert**, everything the 3DS needs from those files, into the app's RomFS:
 - textures: packed into atlases and converted to the 3DS GPU's formats (§7.3), mipmapped;
 - block models and blockstates: baked into per-state quad lists (the work Java does at resource
   load, done once on the PC);
@@ -120,8 +121,8 @@ it after exporting (the mod tells them the command).
 | `n3dsr-server` | 3DS and PC | the integrated server: `core` driven at 20 ticks a second, speaking `protocol` |
 | `n3dsr-client` | 3DS | rendering, input, sound, the interface; speaks `protocol` |
 
-Beside the workspace, in `mod/`: the export mod, `n3dsr-export` (§3.1), a Gradle build of its Java
-and of a Rust crate compiled for the JVM by its own pinned toolchain (§10.4).
+Beside the workspace, in `mod/`: the ownership mod, `n3dsr-export` (§3.1), a Gradle build of its
+Java and of a Rust crate compiled for the JVM by its own pinned toolchain (§10.4).
 
 Packages are prefixed `n3dsr-` (a crate named `core` would clash with Rust's own); the text below
 uses the short names.
@@ -273,11 +274,12 @@ emulator, per step. Hardware is the authority: Azahar reported nonsense for a th
 - Whether 1.18+ world generation can run fast enough to keep ahead of walking (and flying) speed
   at a small render distance, and what to do when it can't.
 - How far back worlds are upgraded (§6.2).
-- Whether `rustc_codegen_jvm` is solid enough for the export mod (§3.1.1): step 2a decides.
-- Whether Mojang's terms let a mod ask `api.minecraftservices.com` about the game's own session
-  (§2.2), as other mods do.
-- The export format: how much to convert in the mod (e.g. textures to PNG atlases) and how much
-  to leave raw for `n3dsr-build`.
+- Mojang's terms (checked 2026-10-23: the Minecraft EULA, the Usage Guidelines, the Microsoft
+  Services Agreement) allow mods outright, and are relaxed about what a player makes for
+  themselves. They don't address a third-party program that reimplements the game; nothing grants
+  it, and the Usage Guidelines can be withdrawn without notice. A risk accepted, not solved. The
+  name breaks the Usage Guidelines' naming rule ("Minecraft" mustn't be the dominant part of a
+  title); kept by decision (§13).
 - Sign-in for online-mode servers (§9.2) still needs an Azure app Mojang has approved
   (`aka.ms/mce-reviewappid`); whether to apply, and when.
 - Which releases after 1.21.11 to follow, and how quickly; in what order the older build bases
@@ -309,6 +311,10 @@ emulator, per step. Hardware is the authority: Azahar reported nonsense for a th
   export afterwards (§3). The mod is Rust compiled to JVM bytecode where that works, built per
   release by Stonecutter (§3.1.1). Mod Menu's config screen, a client command and a launch
   argument all start an export.
+- 2026-10-23 (user): `rustc_codegen_jvm` is used for the mod (§3.1.1). The mod does only what
+  proving ownership needs, checking it as online-mode servers do (`join`, `hasJoined`), and writes
+  a proof; `n3dsr-build` reads the launcher-installed jar and assets itself (§3). The name stays,
+  though it breaks the Usage Guidelines' naming rule (§12).
 - 2026-10-23: the GPU through the `citro3d` Rust bindings, with `citro3d-sys` for what they lack
   (§10.1), after step 1 drew a textured cube in stereo on a New 3DS at 60 frames a second;
   threads on cores 2 and 3 (§4.4.1).
@@ -319,12 +325,12 @@ Each step its own commit, its tests passing.
 
 1. **Toolchain**: a Rust app on ctru-rs drawing a textured cube through citro3d, on hardware and
    Azahar; the decision §10.1 leaves open.
-2. **Export and build** (§3), in parts: (a) a spike: a Fabric mod for 1.21.11 whose Java
+2. **Ownership and build** (§3), in parts: (a) the plumbing: a Fabric mod for 1.21.11 whose Java
    entrypoint calls Rust compiled to JVM bytecode, reading something real from the game, remapped
-   and running; (b) the export mod for 1.21.11: Mod Menu, command, launch argument, the ownership
-   check, the export; (c) `n3dsr-build`: texture atlases; (d) models and blockstates; (e) sounds;
-   (f) data packs, density functions as bytecode; (g) registries and language files; (h) the
-   RomFS, `.3dsx` and `.cia`.
+   and running; (b) the mod for 1.21.11: Mod Menu, command, launch argument, the ownership check,
+   the proof; (c) `n3dsr-build`: reading a proof, the jar and the assets; texture atlases;
+   (d) models and blockstates; (e) sounds; (f) data packs, density functions as bytecode;
+   (g) registries and language files; (h) the RomFS, `.3dsx` and `.cia`.
 3. **A Java world on screen**: a world copied from a PC, its region files read (§6) and rendered,
    flown through; no simulation yet.
 4. **Movement**: the player's physics (collision, gravity, sprinting, swimming), checked against

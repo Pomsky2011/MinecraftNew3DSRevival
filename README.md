@@ -8,9 +8,9 @@ the rest are fixed.
 
 **Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.**
 
-This repository holds none of Mojang's code or assets. A Fabric mod exports the textures, models,
-sounds and data from your own copy of Minecraft: Java Edition, running and signed in, after
-checking with Mojang that your account owns the game; a build tool then converts the export for
-the 3DS. What it makes is for your own console.
+This repository holds none of Mojang's code or assets. A Fabric mod, run in your own copy of
+Minecraft: Java Edition, confirms with Mojang (as an online-mode server would) that your account
+owns the game; a build tool then converts the textures, models, sounds and data your launcher
+installed for the 3DS. What it makes is for your own console.
 
 Status: design (`DESIGN.md`). License: GPL-3.0-or-later (`LICENSE`).
