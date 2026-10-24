@@ -84,3 +84,14 @@ tasks.register('mipmapVectors', JavaExec) {
 	def proof = "${System.getProperty('user.home')}/.config/n3dsr/proofs/${project.minecraft_version}.json"
 	args proof, file("../assets/${project.minecraft_version}/vectors/mipmap").path
 }
+
+tasks.register('blockModelVectors', JavaExec) {
+	group = 'verification'
+	description = "Writes vanilla's baked block models for crates/assets/tests/bake_vanilla.rs."
+	classpath = sourceSets.vectors.runtimeClasspath
+	mainClass = 'io.github.pomsky2011.n3dsr.vectors.BlockModelVectors'
+	def proof = "${System.getProperty('user.home')}/.config/n3dsr/proofs/${project.minecraft_version}.json"
+	def out = file("../assets/${project.minecraft_version}/vectors/block_models.txt")
+	doFirst { out.parentFile.mkdirs() }
+	args proof, out.path
+}

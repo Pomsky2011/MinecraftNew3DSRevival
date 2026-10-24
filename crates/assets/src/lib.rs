@@ -3,7 +3,9 @@
 //! it's pure Rust and knows neither.
 
 pub mod atlas;
+pub mod bake;
 pub mod image;
+pub mod joml;
 pub mod mipmap;
 pub mod model;
 pub mod options;

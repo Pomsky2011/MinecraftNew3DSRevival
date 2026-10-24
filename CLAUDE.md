@@ -27,6 +27,7 @@ cargo run -p n3dsr-build -- ~/.config/n3dsr/proofs/1.21.11.json  # convert from 
 java tools/vectors/JavaRandomVectors.java > crates/core/tests/data/java_random.txt  # regenerate vectors
 java tools/vectors/SrgbTables.java > crates/assets/src/srgb_tables.rs  # Java's sRGB tables, bit-exact
 cd mod && JAVA_HOME=/usr/lib/jvm/java-25-openjdk ./gradlew mipmapVectors  # vanilla's mip levels → assets/<release>/vectors/
+cd mod && JAVA_HOME=/usr/lib/jvm/java-25-openjdk ./gradlew blockModelVectors  # vanilla's baked quads (bake_vanilla.rs)
 ```
 
 `n3dsr-build` writes what it converts into the gitignored `assets/<release>/`: `romfs/` for the
@@ -85,7 +86,9 @@ Test vectors come from running the real thing through small Java programs. From 
 (`tools/vectors/`): output committed under `crates/*/tests/data/` or as generated source. From the
 game's own code (`mod/src/vectors/`, Gradle tasks on the dev classpath, reading the player's jar):
 output is Mojang-derived, so it goes in the gitignored `assets/<release>/vectors/`, and the Rust
-tests that read it pass with a note when it's absent. Floats are compared as raw bits. When such a
+tests that read it pass with a note when it's absent. Floats are compared as raw bits. Model baking matches only because `n3dsr-assets/src/joml.rs`
+keeps JOML's operation order and property-flag paths (`fma` unfused, as the game runs it): never
+"simplify" its arithmetic. When such a
 test fails, suspect the harness too: Java's ImageIO brightens greyscale PNGs, the game's STB
 (`NativeImage.read`) doesn't.
 
