@@ -65,3 +65,22 @@ java {
 	sourceCompatibility = JavaVersion.VERSION_21
 	targetCompatibility = JavaVersion.VERSION_21
 }
+
+// Parity vectors (DESIGN.md §11.2): development-only programs that run the game's own code on the
+// player's files. Never part of the mod's jar.
+sourceSets {
+	vectors {
+		java.srcDir 'src/vectors/java'
+		compileClasspath += sourceSets.main.compileClasspath
+		runtimeClasspath += sourceSets.main.runtimeClasspath
+	}
+}
+
+tasks.register('mipmapVectors', JavaExec) {
+	group = 'verification'
+	description = "Writes vanilla's mip levels for crates/assets/tests/mipmap_vanilla.rs."
+	classpath = sourceSets.vectors.runtimeClasspath
+	mainClass = 'io.github.pomsky2011.n3dsr.vectors.MipmapVectors'
+	def proof = "${System.getProperty('user.home')}/.config/n3dsr/proofs/${project.minecraft_version}.json"
+	args proof, file("../assets/${project.minecraft_version}/vectors/mipmap").path
+}

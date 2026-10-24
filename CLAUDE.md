@@ -22,6 +22,8 @@ cargo clippy --all-targets && cargo fmt --check
 cargo test --no-default-features --features mc1_X_Y   # another build base, once it exists
 cargo run -p n3dsr-build -- ~/.config/n3dsr/proofs/1.21.11.json  # convert from the user's proof
 java tools/vectors/JavaRandomVectors.java > crates/core/tests/data/java_random.txt  # regenerate vectors
+java tools/vectors/SrgbTables.java > crates/assets/src/srgb_tables.rs  # Java's sRGB tables, bit-exact
+cd mod && JAVA_HOME=/usr/lib/jvm/java-25-openjdk ./gradlew mipmapVectors  # vanilla's mip levels → assets/<release>/vectors/
 ```
 
 `n3dsr-build` writes what it converts into the gitignored `assets/<release>/` (and the icon to
@@ -73,9 +75,13 @@ The user tests on a real New 3DS (Luma3DS) by FTP to ftpd, then the Homebrew Lau
 target path is free before uploading. Trust hardware over Azahar for measurements (`DESIGN.md`
 §11.3). The toolchain is pinned in `rust-toolchain.toml`; don't bump it casually (§10.3).
 
-Test vectors come from running the real thing (the JDK, or later a vanilla jar) through small
-Java programs in `tools/vectors/`; their output is committed under `crates/*/tests/data/`, and
-the Rust tests replay it. Floats are compared as raw bits.
+Test vectors come from running the real thing through small Java programs. From the JDK alone
+(`tools/vectors/`): output committed under `crates/*/tests/data/` or as generated source. From the
+game's own code (`mod/src/vectors/`, Gradle tasks on the dev classpath, reading the player's jar):
+output is Mojang-derived, so it goes in the gitignored `assets/<release>/vectors/`, and the Rust
+tests that read it pass with a note when it's absent. Floats are compared as raw bits. When such a
+test fails, suspect the harness too: Java's ImageIO brightens greyscale PNGs, the game's STB
+(`NativeImage.read`) doesn't.
 
 ## What the project is
 

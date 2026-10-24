@@ -4,8 +4,10 @@
 
 pub mod atlas;
 pub mod image;
+pub mod mipmap;
 pub mod options;
 pub mod pack;
 pub mod source;
 pub mod sprite;
+mod srgb_tables;
 pub mod stack;
