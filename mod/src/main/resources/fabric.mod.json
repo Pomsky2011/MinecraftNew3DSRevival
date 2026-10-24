@@ -4,18 +4,32 @@
 	"version": "${version}",
 	"name": "Minecraft New 3DS Revival: ownership check",
 	"description": "Confirms with Mojang that this account owns Minecraft: Java Edition, so the New 3DS build can be made. Not an official Minecraft product; not approved by or associated with Mojang or Microsoft.",
-	"authors": ["Alexander Re White"],
+	"authors": [
+		"Alexander Re White"
+	],
 	"contact": {
 		"sources": "https://github.com/Pomsky2011/MinecraftNew3DSRevival"
 	},
 	"license": "GPL-3.0-or-later",
 	"environment": "client",
 	"entrypoints": {
-		"client": ["io.github.pomsky2011.n3dsr.N3dsrExport"]
+		"client": [
+			"io.github.pomsky2011.n3dsr.N3dsrExport"
+		],
+		"modmenu": [
+			"io.github.pomsky2011.n3dsr.ModMenuIntegration"
+		]
 	},
 	"depends": {
 		"fabricloader": ">=0.20.1",
 		"minecraft": "~1.21.11",
-		"java": ">=21"
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"mixins": [
+		"n3dsr-export.mixins.json"
+	],
+	"suggests": {
+		"modmenu": "*"
 	}
 }

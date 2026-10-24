@@ -1,0 +1,9 @@
+{
+	"required": true,
+	"package": "io.github.pomsky2011.n3dsr.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": ["MinecraftMixin"],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

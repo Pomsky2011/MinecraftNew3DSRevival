@@ -1,15 +1,39 @@
 package io.github.pomsky2011.n3dsr;
 
 import net.fabricmc.api.ClientModInitializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.chat.Component;
 
-/** The mod's entrypoint: Fabric needs a Java class of this shape; the work is in Rust. */
+/**
+ * The mod's entrypoint (DESIGN.md §3.1): wires the three ways to start the ownership check (the
+ * config screen, {@code /n3dsr export}, {@code -Dn3dsr.export=true}) to the Rust that does it.
+ */
 public final class N3dsrExport implements ClientModInitializer {
-	private static final Logger LOGGER = LoggerFactory.getLogger("n3dsr-export");
+	private static boolean launchCheckStarted;
 
 	@Override
 	public void onInitializeClient() {
-		LOGGER.info("{} blocks registered (counted in Rust)", n3dsr_export.n3dsr_export.block_count());
+		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registries) -> dispatcher.register(
+			ClientCommandManager.literal("n3dsr").then(ClientCommandManager.literal("export").executes(context -> {
+				var source = context.getSource();
+				source.sendFeedback(Component.literal("Asking Mojang to confirm ownership…"));
+				OwnershipCheck.run(result -> source.sendFeedback(Component.literal(result.proven()
+					? "Confirmed. Proof: " + result.proof() + "\nNext, run: " + result.command()
+					: result.problem())));
+				return 1;
+			}))));
+
+		if (n3dsr_export.n3dsr_export.launch_requested()) {
+			// At the title screen the game is signed in and settled; check, then quit.
+			ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
+				if (screen instanceof TitleScreen && !launchCheckStarted) {
+					launchCheckStarted = true;
+					OwnershipCheck.run(result -> client.stop());
+				}
+			});
+		}
 	}
 }

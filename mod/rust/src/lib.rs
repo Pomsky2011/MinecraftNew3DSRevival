@@ -1,27 +1,40 @@
 //! The ownership mod's logic (DESIGN.md §3.1), compiled to JVM bytecode. Java reaches it as the
-//! class `n3dsr_export.n3dsr_export`; it reaches Minecraft through the bindings below, written
-//! with Mojang's names, which Loom remaps to the runtime's (§3.1.1).
-//!
-//! For now (§14 step 2a), only enough to prove the plumbing: count the registered blocks.
+//! class `n3dsr_export.n3dsr_export`; it reaches Minecraft through `java`'s bindings, written in
+//! Mojang's names, which Loom remaps to the runtime's (§3.1.1).
 
 #![feature(extern_types)]
+// `&str` crosses to Java as the runtime's Utf8View, which rustc's FFI lint doesn't know.
+#![allow(improper_ctypes)]
 
-#[jvm::class("net.minecraft.core.registries.BuiltInRegistries")]
-impl BuiltInRegistries {
-    // A static field is found by its declared type, so this must be DefaultedRegistry.
-    #[jvm::static_field(name = "BLOCK")]
-    pub fn block() -> *mut DefaultedRegistry {}
+mod java;
+mod proof;
+
+use java::{JString, jstr};
+
+/// What a check came to, as Java sees it: `Outcome.Proven` or `Outcome.Refused`, each with a
+/// `value`, the proof's path or the reason.
+pub enum Outcome {
+    Proven(*mut JString),
+    Refused(*mut JString),
 }
 
-// `size` is declared on IdMap, an interface DefaultedRegistry extends; the JVM finds it there.
-#[jvm::interface("net.minecraft.core.DefaultedRegistry")]
-impl DefaultedRegistry {
-    #[jvm::method]
-    pub fn size(&self) -> i32 {}
+/// Whether the game was launched to check ownership and quit (`-Dn3dsr.export=true`).
+pub fn launch_requested() -> bool {
+    java::property("n3dsr.export").as_deref() == Some("true")
 }
 
-/// How many blocks the game has registered.
-pub fn block_count() -> i32 {
-    // SAFETY: the registry is a live object for as long as the game runs.
-    unsafe { (*BuiltInRegistries::block()).size() }
+/// Checks that the signed-in account owns the game, then writes the proof (DESIGN.md §2.2,
+/// §3.1). Blocks on the network: never call it on the render thread. Exceptions from authlib (an
+/// offline session, Mojang unreachable) pass through to the caller.
+pub fn check() -> Outcome {
+    match proof::check_and_write() {
+        Ok(path) => Outcome::Proven(jstr(&path)),
+        Err(reason) => Outcome::Refused(jstr(&reason)),
+    }
+}
+
+/// The command that builds the 3DS app from a proof.
+pub fn command_for(proof: *mut JString) -> *mut JString {
+    let proof = java::rstr(proof).unwrap_or_default();
+    jstr(&format!("n3dsr-build \"{proof}\""))
 }

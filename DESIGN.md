@@ -43,8 +43,9 @@ them from their own installed copy of the game, once a mod of ours has confirmed
 mod (§3.1) runs inside the player's own game, launched by their own launcher, and checks
 ownership exactly as an online-mode server does: the game's own code sends Mojang's session
 server a `join`, and the public `hasJoined` endpoint confirms the account has a Java Edition
-profile. No token of the player's is handled by our code, and no API is called that vanilla
-doesn't call. An offline or cracked launch can't pass (decided §13). Signing in from a tool of
+profile. The access token is read from the game only to hand straight back to vanilla's
+`joinServer`, as vanilla's own login does, and is never stored, logged or sent anywhere else; no
+API is called that vanilla doesn't call. An offline or cracked launch can't pass (decided §13). Signing in from a tool of
 our own was dropped: Mojang serves its API only to Azure apps it has approved, by a review with
 no stated timeline (§12). The proof the mod writes is a checkpoint, not DRM: it can be forged by
 hand, and isn't meant to stop someone determined to.
@@ -74,9 +75,14 @@ them). It does only what proving ownership needs (decided §13):
   also runs on a client command (`/n3dsr export`), and on a launch argument, at the title screen
   and then quitting, for scripts and for building many releases in a row;
 - it checks ownership (§2.2);
-- it writes a proof file: the account's name and UUID, the release, the time, and the paths and
-  SHA-1s of the client jar and asset index the game is running from (and where the asset objects
-  are), and tells the player the `n3dsr-build` command to run next.
+- it writes a proof file, `<config dir>/n3dsr/proofs/<release>.json` (decided §13; the config
+  dir is the one Rust's `dirs` crate gives, `~/.config` on Linux, so `n3dsr-build` finds it): the
+  account's name and UUID, the release, the time, and the paths and SHA-1s of the client jar and
+  asset index the game is running from, and where the asset objects are. Then it tells the
+  player the `n3dsr-build` command to run next. The client jar is the one on the classpath with
+  `net/minecraft/client/main/Main.class` (never obfuscated; Fabric's remapped copy isn't on the
+  classpath); the asset folders are the ones the game was started with, kept by a mixin on
+  `Minecraft`'s constructor, since the game doesn't keep them.
 
 3.1.1. **The mod is Rust** (decided §13): compiled to JVM bytecode by `rustc_codegen_jvm`, which
 can call Java classes, so the Rust calls the game's own classes directly. Java only where Fabric
@@ -323,6 +329,8 @@ emulator, per step. Hardware is the authority: Azahar reported nonsense for a th
   export afterwards (§3). The mod is Rust compiled to JVM bytecode where that works, built per
   release by Stonecutter (§3.1.1). Mod Menu's config screen, a client command and a launch
   argument all start an export.
+- 2026-10-23 (user): the mod's proofs go in our config directory; its config screen waits for a
+  "Check ownership" press; the launch argument is `-Dn3dsr.export=true`; Mod Menu is optional.
 - 2026-10-23 (user): `rustc_codegen_jvm` is used for the mod (§3.1.1). The mod does only what
   proving ownership needs, checking it as online-mode servers do (`join`, `hasJoined`), and writes
   a proof; `n3dsr-build` reads the launcher-installed jar and assets itself (§3). The name stays,

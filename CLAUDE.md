@@ -39,10 +39,24 @@ cd mod && JAVA_HOME=/usr/lib/jvm/java-25-openjdk ./gradlew runClient  # dev clie
 cd mod/rust && cargo jvm build --release                              # the Rust alone
 ```
 
-Rust binds Minecraft with `rcj`'s `#[jvm::class]`/`#[jvm::interface]`, in Mojang's names; a
-static field must be declared with its exact declared type (e.g. `DefaultedRegistry`, not
-`Registry`). Java reaches the Rust as `n3dsr_export.n3dsr_export.<fn>`. Check remapping with
+Rust binds Java with `rcj`'s `#[jvm::class]`/`#[jvm::interface]` (`mod/rust/src/java.rs`), in
+Mojang's names. Java reaches the Rust as `n3dsr_export.n3dsr_export.<fn>`; a Rust `enum` reaches
+Java as an interface with a class per variant (`Outcome.Proven`, `.value`). Check remapping with
 `javap -v` on the class inside `build/libs/*.jar`: Minecraft references must be `class_NNNN`.
+Backend gotchas, each found the hard way:
+- Never `.is_null()` a pointer to a Java object (it's lowered as the backend's emulated pointer
+  and throws ClassCastException); use `java::null(p as *mut JObject)` (`Objects.isNull`).
+- Bindings check the descriptor against the Rust types: declare every class a signature names
+  (e.g. `ZipEntry`), and a static field with its exact declared type (`DefaultedRegistry`, not
+  `Registry`). Java arrays of objects can't be bound yet; get the data another way.
+- `rename_all = "camelCase"` mangles acronyms (`random_uuid` → `randomUuid`); give `name =
+  "randomUUID"`.
+- Avoid crates whose types have hand-written `Drop` impls in the mod (e.g. `sha1` →
+  `block_buffer`): in a library the backend calls a drop method it never emits. `sha1_smol` works.
+- Rust declares no checked exceptions, so Java must `catch (Throwable)` and test the type.
+- Bulk byte work is slow (emulated memory; ~7 s to SHA-1 30 MB): background threads only.
+- Test the success path (Mojang confirming) in a real launcher; the dev client's session is fake,
+  so there it must end in "Mojang refused the session".
 
 The user tests on a real New 3DS (Luma3DS) by FTP to ftpd, then the Homebrew Launcher; check the
 target path is free before uploading. Trust hardware over Azahar for measurements (`DESIGN.md`
