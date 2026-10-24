@@ -89,7 +89,8 @@ can't be called `core` without clashing with Rust's `core`):
 
 | Crate | Runs on | Role |
 | --- | --- | --- |
-| `n3dsr-build` | PC | Microsoft device-code sign-in → Xbox Live → XSTS → MC services; ownership check; download jar per Mojang's version manifest (SHA-1 checked); convert assets into RomFS (texture atlases in PICA200 formats, baked block-model quads, ADPCM/Vorbis audio, data packs compiled to binary tables, density functions compiled to bytecode); then build `.3dsx`/`.cia` |
+| `n3dsr-export` (planned, `mod/`) | PC, in Minecraft | Fabric-family mod (Fabric 1.14+, Legacy Fabric 1.13.2, Ornithe 1.13/1.13.1), built per release with Stonecutter; Rust compiled to JVM bytecode via `rustc_codegen_jvm` where possible, Java only for entrypoints/mixins (pending the step 2a spike). Checks ownership with Mojang via the game's session, then exports what the game loaded (resource packs applied). Triggered from Mod Menu's config screen, `/n3dsr export`, or a launch argument |
+| `n3dsr-build` | PC | Run by the player on an export folder (no sign-in, no downloading); convert assets into RomFS (texture atlases in PICA200 formats, baked block-model quads, ADPCM/Vorbis audio, data packs compiled to binary tables, density functions compiled to bytecode); then build `.3dsx`/`.cia` |
 | `n3dsr-core` | 3DS + PC | The game itself: registries, chunks, world, entities, ticking, worldgen, saves. **Must contain no 3DS-specific code** so it builds and tests on a PC |
 | `n3dsr-protocol` | 3DS + PC | Java's packets as types and codecs |
 | `n3dsr-server` | 3DS + PC | Integrated server: `core` at 20 TPS, speaking `protocol` |

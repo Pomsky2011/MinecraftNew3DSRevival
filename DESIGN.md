@@ -36,12 +36,15 @@ and earlier (§1.1.1); Bedrock Edition's servers or worlds; mods.
 ## 2. What we ship, and what you bring
 
 2.1. **This project ships no Mojang code and no Mojang assets.** Its own code is GPL-3.0-or-later.
-Textures, sounds, models, language files and data packs are Mojang's: each player's build tool
-takes them from that player's own copy of the game (§3).
+Textures, sounds, models, language files and data packs are Mojang's: each player exports them
+from their own copy of the game, running, with a mod of ours (§3).
 
-2.2. **The build needs a Microsoft account that owns Minecraft: Java Edition.** The build tool
-signs in (§3.1) and checks the account's entitlements before it downloads anything; without
-ownership it stops.
+2.2. **The export needs a game signed in to an account that owns Minecraft: Java Edition.** The
+export mod (§3.1) runs inside the player's own game, launched by their own launcher, so it never
+signs in itself: it asks Mojang's servers, with the game's session, whether that account owns the
+game, and exports nothing otherwise. An offline or cracked launch can't export (decided §13).
+Signing in from a tool of our own was dropped: Mojang serves its API only to Azure apps it has
+approved, by a review with no stated timeline (§12).
 
 2.3. **Behaviour is reimplemented, not copied.** Java Edition is unobfuscated since 26.1 (2025),
 and Mojang has published official mappings since 1.14.4, so how vanilla works can be read for
@@ -56,16 +59,39 @@ data (§3.3), we read the data from the player's jar instead of rewriting it.
 2.4. Releases are source and the build tool; a built `.3dsx`/`.cia` holds the player's converted
 assets and is never redistributed.
 
-## 3. The build tool (`n3dsr-build`, Rust, on the PC)
+## 3. Export and build
 
-3.1. **Sign-in**: Microsoft's device-code flow (a code to type at `microsoft.com/link`), then
-Xbox Live, XSTS, and Minecraft services, as launchers do; the entitlement check (§2.2) reads the
-account's licenses. Tokens are kept in the user's config directory, refreshed, never logged.
+Two parts (decided §13): a mod that exports from the running game, and a converter the player
+runs on the export afterwards.
 
-3.2. **Download**: the chosen version's (1.13 or later, §1.1.1) entry in Mojang's version manifest, its client jar (and,
-for the data, the server jar where it differs), checked against the manifest's SHA-1s, cached.
+3.1. **The export mod (`n3dsr-export`)**, one build per release, on the Fabric Loader family:
+Fabric for 1.14 onward, Legacy Fabric for 1.13.2, Ornithe for 1.13 and 1.13.1 (neither of the
+others reaches them). It:
+- shows in Mod Menu (and the like); opening its config screen starts the export setup. It also
+  exports on a client command (`/n3dsr export`), and on a launch argument, exporting at the title
+  screen and quitting, for scripts and for building many releases in a row;
+- checks ownership first (§2.2);
+- writes out what the game has loaded, resource packs applied: textures, block models and
+  blockstates as the game resolved them, sounds and language files, registries, and the data
+  packs' contents, into an export folder, with a manifest saying which release, which packs, and
+  what each file is.
 
-3.3. **Convert**, everything the 3DS needs from the jar, into the app's RomFS:
+The game has already parsed and resolved its resources by the title screen, so the mod exports
+them instead of `n3dsr-build` parsing each release's jar itself.
+
+3.1.1. **The mod is Rust where possible** (decided §13): compiled to JVM bytecode by
+`rustc_codegen_jvm`, which can call Java classes, so Rust reads the game's objects directly. Java
+only where Fabric requires a JVM class of its own shape: entrypoints and mixins. Stonecutter
+builds the mod per release and switches its Java between releases; the Rust uses the same
+per-release Cargo features as `core` (§5.6). Before 26.1 the game's classes run under Fabric's
+intermediary names, so the Rust's jar is remapped to them with Fabric's tiny-remapper, as Loom
+remaps a Java mod's. Whether this holds up is step 2a's spike (§14); if it doesn't, the mod is
+Java and only the converter is Rust.
+
+3.2. **The converter (`n3dsr-build`, Rust, on the PC)** reads an export folder; the player runs
+it after exporting (the mod tells them the command).
+
+3.3. **Convert**, everything the 3DS needs from the export, into the app's RomFS:
 - textures: packed into atlases and converted to the 3DS GPU's formats (§7.3), mipmapped;
 - block models and blockstates: baked into per-state quad lists (the work Java does at resource
   load, done once on the PC);
@@ -88,11 +114,14 @@ for the data, the server jar where it differs), checked against the manifest's S
 
 | Crate | Runs on | Holds |
 | --- | --- | --- |
-| `n3dsr-build` | PC | §3 |
+| `n3dsr-build` | PC | §3.2–3.4 |
 | `n3dsr-core` | 3DS and PC | the game: registries, blocks, chunks, the world, entities, ticking, world generation, saves. No 3DS code: it builds and tests on a PC (§11). |
 | `n3dsr-protocol` | 3DS and PC | Java's packets, as types and codecs |
 | `n3dsr-server` | 3DS and PC | the integrated server: `core` driven at 20 ticks a second, speaking `protocol` |
 | `n3dsr-client` | 3DS | rendering, input, sound, the interface; speaks `protocol` |
+
+Beside the workspace, in `mod/`: the export mod, `n3dsr-export` (§3.1), a Gradle build of its Java
+and of a Rust crate compiled for the JVM by its own pinned toolchain (§10.4).
 
 Packages are prefixed `n3dsr-` (a crate named `core` would clash with Rust's own); the text below
 uses the short names.
@@ -217,6 +246,11 @@ rustc's unstable test internals, which changed twice between June and September 
 10.2. devkitPro's devkitARM, libctru and citro3d are build dependencies, as is the player's copy
 of Minecraft (§2.2).
 
+10.4. The export mod: Gradle with Fabric Loom (Legacy Fabric's and Ornithe's for their releases)
+and Stonecutter; the JDK each release needs (8 for 1.13 to 1.16, 16 for 1.17, 17 for 1.18 to
+1.20.4, 21 from 1.20.5, and what 26.x asks); `rustc_codegen_jvm` (`cargo-jvm`) with the nightly
+it pins, separate from the 3DS's (§10.3).
+
 ## 11. Testing
 
 11.1. `core`, `protocol` and `server` build and test on the PC; nothing in them knows the 3DS.
@@ -239,6 +273,13 @@ emulator, per step. Hardware is the authority: Azahar reported nonsense for a th
 - Whether 1.18+ world generation can run fast enough to keep ahead of walking (and flying) speed
   at a small render distance, and what to do when it can't.
 - How far back worlds are upgraded (§6.2).
+- Whether `rustc_codegen_jvm` is solid enough for the export mod (§3.1.1): step 2a decides.
+- Whether Mojang's terms let a mod ask `api.minecraftservices.com` about the game's own session
+  (§2.2), as other mods do.
+- The export format: how much to convert in the mod (e.g. textures to PNG atlases) and how much
+  to leave raw for `n3dsr-build`.
+- Sign-in for online-mode servers (§9.2) still needs an Azure app Mojang has approved
+  (`aka.ms/mce-reviewappid`); whether to apply, and when.
 - Which releases after 1.21.11 to follow, and how quickly; in what order the older build bases
   (1.13–1.21.10) are added.
 
@@ -262,6 +303,12 @@ emulator, per step. Hardware is the authority: Azahar reported nonsense for a th
   (§2.3); one Cargo feature per release (§5.6).
 - 2026-10-23 (user): features spelled `mc1_21_11`; development starts with §14 step 1 and `core`'s
   foundations (Java's random generators) in parallel.
+- 2026-10-23 (user): step 2 converts everything in §3.3. The game's files come from a mod in the
+  player's own running game (Fabric, Legacy Fabric for 1.13.2, Ornithe for 1.13 and 1.13.1), which
+  checks ownership with Mojang through the game's session; the player runs `n3dsr-build` on the
+  export afterwards (§3). The mod is Rust compiled to JVM bytecode where that works, built per
+  release by Stonecutter (§3.1.1). Mod Menu's config screen, a client command and a launch
+  argument all start an export.
 - 2026-10-23: the GPU through the `citro3d` Rust bindings, with `citro3d-sys` for what they lack
   (§10.1), after step 1 drew a textured cube in stereo on a New 3DS at 60 frames a second;
   threads on cores 2 and 3 (§4.4.1).
@@ -272,7 +319,12 @@ Each step its own commit, its tests passing.
 
 1. **Toolchain**: a Rust app on ctru-rs drawing a textured cube through citro3d, on hardware and
    Azahar; the decision §10.1 leaves open.
-2. **The build tool**: sign-in, ownership, download, textures and models converted.
+2. **Export and build** (§3), in parts: (a) a spike: a Fabric mod for 1.21.11 whose Java
+   entrypoint calls Rust compiled to JVM bytecode, reading something real from the game, remapped
+   and running; (b) the export mod for 1.21.11: Mod Menu, command, launch argument, the ownership
+   check, the export; (c) `n3dsr-build`: texture atlases; (d) models and blockstates; (e) sounds;
+   (f) data packs, density functions as bytecode; (g) registries and language files; (h) the
+   RomFS, `.3dsx` and `.cia`.
 3. **A Java world on screen**: a world copied from a PC, its region files read (§6) and rendered,
    flown through; no simulation yet.
 4. **Movement**: the player's physics (collision, gravity, sprinting, swimming), checked against
