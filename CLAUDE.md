@@ -10,8 +10,9 @@ ownership mod (`mod/`, 1.21.11) checks ownership and writes a proof, verified in
 instance. (c) is under way: `n3dsr-build` reads a proof, verifies the jar and asset index, builds the
 game's own resource pack stack (`n3dsr-assets`: Java's lookup, filter, overlay and format rules,
 from `options.txt`), makes the end stone icons, and builds all 15 atlases (sprites and sources as
-Java gathers them, Java's mipmaps verified identical, packed into RGB565/RGBA4 GPU pages). Next:
-the textures outside atlases (entities, environment, fonts…). `n3dsr-core` has `JavaRandom`
+Java gathers them, Java's mipmaps verified identical, packed into RGB565/RGBA4 GPU pages) and
+the textures outside them (one GPU texture each, padded; tall font sheets in strips; Realms left
+out; the panorama halved). Next: block models (2d). `n3dsr-core` has `JavaRandom`
 (`java.util.Random`, bit-exact). `DESIGN.md` is the spec (a draft, RFC 2119 MUST/SHOULD
 wording); `PARITY.md` lists deliberate deviations from Java Edition.
 

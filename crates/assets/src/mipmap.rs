@@ -81,6 +81,24 @@ pub fn levels(sprite: &Sprite, levels: u32) -> Vec<Image> {
     out
 }
 
+/// Half the size, each pixel Java's linear-light mean of a 2×2 block (`ARGB.meanLinear`): for
+/// downscaling outside mipmaps, so colours don't darken.
+pub fn halve_linear(image: &Image) -> Image {
+    let mut out = Image::new(image.width / 2, image.height / 2);
+    for x in 0..out.width {
+        for y in 0..out.height {
+            let pixel = mean_linear(
+                argb(image.texel(x * 2, y * 2)),
+                argb(image.texel(x * 2 + 1, y * 2)),
+                argb(image.texel(x * 2, y * 2 + 1)),
+                argb(image.texel(x * 2 + 1, y * 2 + 1)),
+            );
+            out.set(x, y, rgba(pixel));
+        }
+    }
+    out
+}
+
 /// The share of the image an alpha test at `cutoff` passes, its alphas scaled by `scale`: each
 /// 2×2 neighbourhood sampled bilinearly at 16 points (`alphaTestCoverage`).
 fn coverage(image: &Image, cutoff: f32, scale: f32) -> f32 {

@@ -163,6 +163,13 @@ PC, pure Rust: `png`, `zip`), with `n3dsr-build` a front end to it.
   progress, as Java does each tick.
 - Each page's PNG preview is written beside it (as packed, and decoded back from its GPU format),
   for looking at.
+- Textures outside atlases (mobs, GUI, sky, fonts) are one GPU texture each, as Java draws them
+  (decided §13), padded top left to power-of-two sides, with their `.mcmeta` `blur` and `clamp`.
+  Realms' textures are left out (the `realms` namespace and `textures/gui/realms/`); the title
+  panorama's faces are halved to 512 in linear light (the top screen shows some 420 pixels of a
+  face); a texture taller than 1024 is cut into strips, on glyph rows when a bitmap font uses it
+  (1.21.11's `accented` and `nonlatin_european`). The colour maps are also kept as RGB data, for
+  biome tints on the CPU.
 
 ## 4. Architecture
 
@@ -241,6 +248,11 @@ has none), and `StrictMath` where Java uses it, so physics and generation round 
 6.1. **Java's format**, as the build base writes it: a world folder of `level.dat`, region files
 (`.mca`, Anvil: chunks as zlib-compressed NBT, sectors of 4 KiB), POI regions (1.14 onward),
 entity regions (1.17 onward), player data; the data version of the build base. On the SD card under `/3ds/n3dsr/saves/`.
+
+6.1.1. A chunk too big for its region file (over 255 sectors, about 1 MB compressed: a chest of
+books of random 3-byte characters will do it) is written as Java does from 1.15, to an `.mcc`
+file beside the region, the region's entry flagged as external; read back the same way. A parity
+case (§11.2).
 
 6.2. A world from a release newer than the build base is refused, not opened (as Java does); an older one is
 upgraded by the same data fixes Java applies, as far as we implement them, and otherwise refused.
@@ -375,6 +387,8 @@ emulator, per step. Hardware is the authority: Azahar reported nonsense for a th
   time and from the SD card at run time (§3.5); all textures in step 2c, RGB565 for opaque
   sprites and RGBA4 for the rest, every animation frame in the atlas, interpolation blended on
   the GPU, Java's mipmapping (§3.6).
+- 2026-10-24 (user): textures outside atlases one GPU texture each; padded, not resampled; colour
+  maps as textures and as data; Realms' textures left out; the title panorama downscaled (§3.6).
 - 2026-10-23 (user): the app's icon is the player's end stone texture, the small one averaged
   down from the large (§3.4.1).
 - 2026-10-23 (user): the mod's proofs go in our config directory; its config screen waits for a

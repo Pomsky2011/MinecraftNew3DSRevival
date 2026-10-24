@@ -5,7 +5,7 @@ mod icon;
 mod proof;
 mod release;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -118,40 +118,58 @@ fn atlases(stack: &Stack, out: &Path) -> Result<BTreeSet<(String, String)>> {
     Ok(in_atlases)
 }
 
-/// Every texture no atlas took, as a GPU texture of its own, with an index; and the colour maps
-/// as data too (DESIGN.md §3.6).
+/// Every texture no atlas took (but those the build leaves out), as GPU textures of their own,
+/// with an index; and the colour maps as data too (DESIGN.md §3.6).
 fn standalone(stack: &Stack, out: &Path, in_atlases: &BTreeSet<(String, String)>) -> Result<()> {
     let romfs = out.join("romfs");
+    let rows: BTreeMap<(String, String), u32> =
+        standalone::font_row_heights(stack)?.into_iter().collect();
     let mut index = serde_json::Map::new();
     let (mut count, mut bytes) = (0, 0);
     for (namespace, path) in stack.list_all("textures")? {
-        if !path.ends_with(".png") || in_atlases.contains(&(namespace.clone(), path.clone())) {
+        let key = (namespace.clone(), path.clone());
+        if !path.ends_with(".png")
+            || in_atlases.contains(&key)
+            || standalone::left_out(&namespace, &path)
+        {
             continue;
         }
-        let texture = match standalone::load(stack, &namespace, &path) {
+        let texture = match standalone::load(stack, &namespace, &path, rows.get(&key).copied()) {
             Ok(texture) => texture,
             Err(note) => {
                 println!("  note: {note}");
                 continue;
             }
         };
-        let file = romfs
+        // romfs/textures/<namespace>/<path without textures/ and .png>[-<strip>].bin
+        let stem = romfs
             .join("textures")
             .join(&namespace)
-            .join(&path)
-            .with_extension("bin");
-        fs::create_dir_all(file.parent().unwrap())?;
-        let data = texture.page.to_bytes();
-        bytes += data.len();
-        fs::write(&file, data)?;
-        if path.starts_with(standalone::COLORMAP_DIR) {
+            .join(&path["textures/".len()..path.len() - ".png".len()]);
+        fs::create_dir_all(stem.parent().unwrap())?;
+        for (strip, page) in texture.pages.iter().enumerate() {
+            let file = if texture.pages.len() == 1 {
+                stem.with_extension("bin")
+            } else {
+                stem.with_file_name(format!(
+                    "{}-{strip}.bin",
+                    stem.file_name().unwrap().to_string_lossy()
+                ))
+            };
+            let data = page.to_bytes();
+            bytes += data.len();
+            fs::write(file, data)?;
+        }
+        if let Some(name) = path.strip_prefix(standalone::COLORMAP_DIR) {
             let raw = romfs
                 .join("colormap")
                 .join(&namespace)
-                .join(&path[standalone::COLORMAP_DIR.len()..])
+                .join(name)
                 .with_extension("rgb");
             fs::create_dir_all(raw.parent().unwrap())?;
-            fs::write(raw, standalone::colormap_rgb(&texture.page.levels[0]))?;
+            let image =
+                texture.pages[0].levels[0].crop(0, 0, texture.entry.width, texture.entry.height);
+            fs::write(raw, standalone::colormap_rgb(&image))?;
         }
         index.insert(texture.id, serde_json::to_value(texture.entry)?);
         count += 1;
