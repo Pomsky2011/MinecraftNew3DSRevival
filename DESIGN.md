@@ -94,6 +94,9 @@ Java's. Proven by step 2a (2026-10-23): Rust bound to `BuiltInRegistries.BLOCK` 
 `DefaultedRegistry.size()` came out as `class_7923.field_41175` and `class_7922.method_10204`
 (`size` resolved through `IdMap`, where it's declared), and counted 1166 blocks in a 1.21.11
 client. The Rust compiles to Java 8 class files, so the same holds for the oldest releases.
+Step 2b (2026-10-23) ran the whole check in the user's Prism instance: Mojang confirmed the
+account, and the proof's client jar and asset index SHA-1s matched Mojang's published ones for
+1.21.11 (`ba2df812…`, index 29 `a2f0558b…`).
 
 3.1.2. Two costs found by the spike, for later: `cargo jvm package` bundles the whole Rust
 standard library (a 17 MB jar of some 14,000 classes, most unused); and its runtime lives in
