@@ -10,4 +10,5 @@
 /mod/.gradle
 /mod/build
 /mod/run
+/mod/logs
 /mod/rust/target
