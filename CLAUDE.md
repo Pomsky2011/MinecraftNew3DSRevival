@@ -12,7 +12,10 @@ game's own resource pack stack (`n3dsr-assets`: Java's lookup, filter, overlay a
 from `options.txt`), makes the end stone icons, and builds all 15 atlases (sprites and sources as
 Java gathers them, Java's mipmaps verified identical, packed into RGB565/RGBA4 GPU pages) and
 the textures outside them (one GPU texture each, padded; tall font sheets in strips; Realms left
-out; the panorama halved). Next: block models (2d). `n3dsr-core` has `JavaRandom`
+out; the panorama halved). 2d is done: block and item models baked bit-for-bit as vanilla bakes
+them (checked against vanilla's own baker on every model), written with blockstate selectors and
+item definitions to `romfs/models.bin` (postcard). Next: sounds (2e); and once `core` defines
+blocks, pre-matching states to models at build time. `n3dsr-core` has `JavaRandom`
 (`java.util.Random`, bit-exact). `DESIGN.md` is the spec (a draft, RFC 2119 MUST/SHOULD
 wording); `PARITY.md` lists deliberate deviations from Java Edition.
 
@@ -33,7 +36,7 @@ cd mod && JAVA_HOME=/usr/lib/jvm/java-25-openjdk ./gradlew itemModelVectors   # 
 
 `n3dsr-build` writes what it converts into the gitignored `assets/<release>/`: `romfs/` for the
 app (atlas pages `atlases/<name>-<n>.bin`, header `N3TX` + tiled 16-bit levels, and their JSON
-index), `preview/` PNGs of every page as packed and as the 3DS will show it (the user likes them
+index; `models.bin`, `n3dsr_assets::modeldata::ModelData` in postcard), `preview/` PNGs of every page as packed and as the 3DS will show it (the user likes them
 opened in Gwenview), `vectors/` for parity tests (and the icon to
 `crates/client/icon.png`, also gitignored, where `cargo-3ds` finds it). It's Mojang's content
 derived from the player's jar: never commit it, and check `git status` shows none of it.

@@ -367,7 +367,7 @@ pub struct Part {
 
 /// A multipart condition: property tests (each value one of `a|b|c`, `!` negating a value), or an
 /// `AND`/`OR` of others.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Condition {
     Properties(Vec<(String, Vec<(String, bool)>)>),
     And(Vec<Condition>),

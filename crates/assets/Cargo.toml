@@ -10,6 +10,7 @@ publish.workspace = true
 # Everything here also runs on the 3DS (DESIGN.md §3.5): pure Rust only.
 [dependencies]
 png = "0.18"
+postcard = { version = "1", default-features = false, features = ["use-std"] }
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 # arbitrary_precision keeps a number's text, so floats parse straight to f32 as Gson does.

@@ -8,6 +8,7 @@ pub mod image;
 pub mod joml;
 pub mod mipmap;
 pub mod model;
+pub mod modeldata;
 pub mod options;
 pub mod pack;
 pub mod pica;
