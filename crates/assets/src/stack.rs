@@ -55,6 +55,46 @@ impl Stack {
         Ok(None)
     }
 
+    /// Every pack's copy of `namespace`/`path`, lowest first, as Java's `getResourceStack`: down
+    /// from the top, ending (after its own copy) at the first pack whose filter matches. For files
+    /// packs add to rather than replace, such as atlas definitions.
+    pub fn read_stack(&self, namespace: &str, path: &str) -> io::Result<Vec<Found>> {
+        let file = format!("assets/{namespace}/{path}");
+        let mut found = Vec::new();
+        for (index, pack) in self.packs.iter().enumerate().rev() {
+            if let Some(bytes) = pack.read(&file)? {
+                found.push(Found { bytes, pack: index });
+            }
+            if pack.filters(namespace, path) {
+                break;
+            }
+        }
+        found.reverse();
+        Ok(found)
+    }
+
+    /// Every `(namespace, path)` under `<directory>/` in any namespace, sorted, by `list`'s rules.
+    pub fn list_all(&self, directory: &str) -> io::Result<Vec<(String, String)>> {
+        let mut namespaces = BTreeSet::new();
+        for pack in &self.packs {
+            for file in pack.files()? {
+                if let Some(namespace) = file
+                    .strip_prefix("assets/")
+                    .and_then(|rest| rest.split('/').next())
+                {
+                    namespaces.insert(namespace.to_owned());
+                }
+            }
+        }
+        let mut all = Vec::new();
+        for namespace in namespaces {
+            for path in self.list(&namespace, directory)? {
+                all.push((namespace.clone(), path));
+            }
+        }
+        Ok(all)
+    }
+
     /// Every path under `assets/<namespace>/<directory>/` the stack has, sorted. As Java lists: up
     /// the stack, each pack's filter first removes what the packs below listed, then its own files
     /// are added.
@@ -196,6 +236,42 @@ mod tests {
                 .unwrap()
                 .is_some()
         );
+    }
+
+    #[test]
+    fn stacks_gather_every_pack_s_copy_down_to_a_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        let atlas = "atlases/blocks.json";
+        let stack = Stack {
+            packs: vec![
+                folder_pack(
+                    dir.path(),
+                    "vanilla",
+                    "",
+                    &[("assets/minecraft/atlases/blocks.json", "v")],
+                ),
+                folder_pack(
+                    dir.path(),
+                    "a",
+                    r#", "filter": {"block": [{"path": "atlases"}]}"#,
+                    &[("assets/minecraft/atlases/blocks.json", "a")],
+                ),
+                folder_pack(
+                    dir.path(),
+                    "b",
+                    "",
+                    &[("assets/minecraft/atlases/blocks.json", "b")],
+                ),
+            ],
+        };
+        let found: Vec<String> = stack
+            .read_stack("minecraft", atlas)
+            .unwrap()
+            .into_iter()
+            .map(|f| String::from_utf8(f.bytes).unwrap())
+            .collect();
+        // "a" filters what's below it, but keeps its own copy.
+        assert_eq!(found, ["a", "b"]);
     }
 
     #[test]

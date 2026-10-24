@@ -11,10 +11,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use clap::Parser;
 
-use n3dsr_assets::options;
 use n3dsr_assets::pack::Pack;
 use n3dsr_assets::source::{AssetIndex, Layered, Zip};
 use n3dsr_assets::stack::Stack;
+use n3dsr_assets::{atlas, options};
 use proof::Proof;
 
 /// The repository, which a player builds from: converted assets go in its gitignored `assets/`.
@@ -85,5 +85,38 @@ fn main() -> Result<()> {
         out.join("icon.png").display(),
         client_icon.display()
     );
+
+    println!("Atlases:");
+    for definition in stack.list("minecraft", "atlases")? {
+        let Some(name) = definition
+            .strip_prefix("atlases/")
+            .and_then(|n| n.strip_suffix(".json"))
+        else {
+            continue;
+        };
+        let atlas = atlas::load(&stack, name)?;
+        let animated = atlas
+            .sprites
+            .iter()
+            .filter(|s| s.animation.is_some())
+            .count();
+        let interpolated = atlas
+            .sprites
+            .iter()
+            .filter(|s| s.animation.as_ref().is_some_and(|a| a.interpolate))
+            .count();
+        let frames: u32 = atlas
+            .sprites
+            .iter()
+            .map(|s| s.animation.as_ref().map_or(1, |_| s.frame_count()))
+            .sum();
+        println!(
+            "  {name}: {} sprites, {frames} frames ({animated} animated, {interpolated} interpolated)",
+            atlas.sprites.len()
+        );
+        for note in &atlas.notes {
+            println!("    note: {note}");
+        }
+    }
     Ok(())
 }

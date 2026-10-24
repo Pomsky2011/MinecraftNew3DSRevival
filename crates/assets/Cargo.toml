@@ -9,6 +9,7 @@ publish.workspace = true
 
 # Everything here also runs on the 3DS (DESIGN.md §3.5): pure Rust only.
 [dependencies]
+png = "0.18"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
