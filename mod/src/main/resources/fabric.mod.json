@@ -11,6 +11,7 @@
 		"sources": "https://github.com/Pomsky2011/MinecraftNew3DSRevival"
 	},
 	"license": "GPL-3.0-or-later",
+	"icon": "assets/n3dsr-export/icon.png",
 	"environment": "client",
 	"entrypoints": {
 		"client": [

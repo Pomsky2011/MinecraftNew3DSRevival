@@ -5,7 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Status
 
 Early. `DESIGN.md` §14 step 1 is done: `n3dsr-client` draws a textured cube in stereo and prints
-a hardware probe (cores, memory) on the bottom screen. `n3dsr-core` has `JavaRandom`
+a hardware probe (cores, memory) on the bottom screen. Step 2's (a) and (b) are done: the
+ownership mod (`mod/`, 1.21.11) checks ownership and writes a proof, verified in the user's Prism
+instance. Next: (c), `n3dsr-build` reading a proof. `n3dsr-core` has `JavaRandom`
 (`java.util.Random`, bit-exact). `DESIGN.md` is the spec (a draft, RFC 2119 MUST/SHOULD
 wording); `PARITY.md` lists deliberate deviations from Java Edition.
 
