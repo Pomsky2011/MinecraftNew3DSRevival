@@ -1,6 +1,7 @@
 /target
 # What the build tool extracts from your own copy of Minecraft: never committed or shipped.
 /assets
+/crates/client/icon.png
 *.3dsx
 *.cia
 *.smdh

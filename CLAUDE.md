@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Early. `DESIGN.md` §14 step 1 is done: `n3dsr-client` draws a textured cube in stereo and prints
 a hardware probe (cores, memory) on the bottom screen. Step 2's (a) and (b) are done: the
 ownership mod (`mod/`, 1.21.11) checks ownership and writes a proof, verified in the user's Prism
-instance. Next: (c), `n3dsr-build` reading a proof. `n3dsr-core` has `JavaRandom`
+instance. (c) has begun: `n3dsr-build` reads a proof, verifies the jar and asset index, and makes the app's
+end stone icons; texture atlases are next. `n3dsr-core` has `JavaRandom`
 (`java.util.Random`, bit-exact). `DESIGN.md` is the spec (a draft, RFC 2119 MUST/SHOULD
 wording); `PARITY.md` lists deliberate deviations from Java Edition.
 
@@ -18,8 +19,13 @@ cargo test                                   # all PC crates (the client is excl
 cargo test -p n3dsr-core --test java_random  # one test file; add a test name to filter further
 cargo clippy --all-targets && cargo fmt --check
 cargo test --no-default-features --features mc1_X_Y   # another build base, once it exists
+cargo run -p n3dsr-build -- ~/.config/n3dsr/proofs/1.21.11.json  # convert from the user's proof
 java tools/vectors/JavaRandomVectors.java > crates/core/tests/data/java_random.txt  # regenerate vectors
 ```
+
+`n3dsr-build` writes what it converts into the gitignored `assets/<release>/` (and the icon to
+`crates/client/icon.png`, also gitignored, where `cargo-3ds` finds it). It's Mojang's content
+derived from the player's jar: never commit it, and check `git status` shows none of it.
 
 The 3DS client needs devkitPro (`3ds-dev`) and `cargo-3ds`. devkitPro's env script doesn't put
 the ARM linker on `PATH`, so:

@@ -125,6 +125,12 @@ each release's formats itself.
 3.4. **Build**: the converted assets, then the app (`cargo` for the 3DS target, §10), into a
 `.3dsx` (homebrew launcher) and a `.cia`.
 
+3.4.1. **The app's icon is end stone** (decided §13), from the player's own jar
+(`assets/minecraft/textures/block/end_stone.png`, the same path in every release from 1.13): the
+48×48 icon by nearest-neighbour ×3, the 24×24 by averaging the 48×48's 2×2 blocks. `n3dsr-build`
+makes both, since `smdhtool`'s own small icon averages each block's top-left and bottom-right
+pixels twice and the other two never. Builds without a proof keep libctru's default icon.
+
 ## 4. Architecture
 
 4.1. One Rust workspace:
@@ -332,6 +338,8 @@ emulator, per step. Hardware is the authority: Azahar reported nonsense for a th
   export afterwards (§3). The mod is Rust compiled to JVM bytecode where that works, built per
   release by Stonecutter (§3.1.1). Mod Menu's config screen, a client command and a launch
   argument all start an export.
+- 2026-10-23 (user): the app's icon is the player's end stone texture, the small one averaged
+  down from the large (§3.4.1).
 - 2026-10-23 (user): the mod's proofs go in our config directory; its config screen waits for a
   "Check ownership" press; the launch argument is `-Dn3dsr.export=true`; Mod Menu is optional.
 - 2026-10-23 (user): `rustc_codegen_jvm` is used for the mod (§3.1.1). The mod does only what
