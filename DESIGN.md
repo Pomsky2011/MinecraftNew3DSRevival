@@ -171,6 +171,28 @@ PC, pure Rust: `png`, `zip`), with `n3dsr-build` a front end to it.
   (1.21.11's `accented` and `nonlatin_european`). The colour maps are also kept as RGB data, for
   biome tints on the CPU.
 
+3.7. **Block and item models** (decided §13), baked by the build as the release's Java bakes them:
+- Models: the parent chain (geometry and `ambientocclusion` from the nearest that has them;
+  textures merged parent first, `#references` resolved to a fixed point), elements (from/to,
+  1.21.11's any-angle and Euler rotations with rescale, `shade`, `light_emission`), faces (UV,
+  default UVs from the element, quarter-turn `rotation`, `cullface`, `tintindex`).
+- Blockstates: every variant (model, x/y/z quarter turns as one of the cube's 48 symmetries,
+  `uvlock`, weight) and multipart part is baked; their selectors (variant keys, multipart
+  conditions with `|`, `!`, `AND`, `OR`) are kept as data. The game matches states to models by
+  Java's rules and caches what it matched; once `core` defines the release's blocks, the build
+  also lists every state from it and stores the matches, so the game only looks them up. The
+  states aren't in the jar's data, and the data generator that lists them is only in the server
+  jar, which launchers don't install.
+- Items: 1.21.4+ item definitions (`items/*.json`) and their model selection, and the flat item
+  models Java extrudes from a sprite's edges (`ItemModelGenerator`).
+- Quads keep sprite-local UVs (0–1 in the sprite) and the sprite's index, not atlas UVs, since
+  animated sprites move between frames. Stored in a compact binary: positions as 16-bit fixed
+  point (1/4096 of a block), UVs 16-bit, the rest packed.
+- Fluids and block entities (chests, signs, beds, banners, skulls…) aren't in these files; they're
+  drawn by code, with the entity models.
+- Checked against the game: a dev harness bakes every model with vanilla's own code, and every
+  quad is compared, floats as raw bits.
+
 ## 4. Architecture
 
 4.1. One Rust workspace:
@@ -387,6 +409,9 @@ emulator, per step. Hardware is the authority: Azahar reported nonsense for a th
   time and from the SD card at run time (§3.5); all textures in step 2c, RGB565 for opaque
   sprites and RGBA4 for the rest, every animation frame in the atlas, interpolation blended on
   the GPU, Java's mipmapping (§3.6).
+- 2026-10-24 (user): block and item models in step 2; states matched in the game (cached) and,
+  once `core` defines blocks, at build time too; compact binary quads; every model checked
+  against vanilla's baking (§3.7).
 - 2026-10-24 (user): textures outside atlases one GPU texture each; padded, not resampled; colour
   maps as textures and as data; Realms' textures left out; the title panorama downscaled (§3.6).
 - 2026-10-23 (user): the app's icon is the player's end stone texture, the small one averaged
