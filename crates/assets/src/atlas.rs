@@ -22,6 +22,27 @@ pub struct Atlas {
 
 pub const MISSING: &str = "minecraft:missingno";
 
+/// The atlases the game builds, and whether each gets mipmaps: a fixed list in the game's code
+/// (`AtlasManager.KNOWN_ATLASES`), not whatever `atlases/` holds.
+#[cfg(feature = "mc1_21_11")]
+pub const KNOWN: &[(&str, bool)] = &[
+    ("armor_trims", false),
+    ("banner_patterns", false),
+    ("beds", false),
+    ("blocks", true),
+    ("items", false),
+    ("chests", false),
+    ("decorated_pot", false),
+    ("gui", false),
+    ("map_decorations", false),
+    ("paintings", false),
+    ("particles", false),
+    ("shield_patterns", false),
+    ("shulker_boxes", false),
+    ("signs", false),
+    ("celestials", false),
+];
+
 /// A sprite found by a source, loaded only if no later source replaces or removes it.
 enum Pending {
     File {

@@ -7,9 +7,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Early. `DESIGN.md` §14 step 1 is done: `n3dsr-client` draws a textured cube in stereo and prints
 a hardware probe (cores, memory) on the bottom screen. Step 2's (a) and (b) are done: the
 ownership mod (`mod/`, 1.21.11) checks ownership and writes a proof, verified in the user's Prism
-instance. (c) has begun: `n3dsr-build` reads a proof, verifies the jar and asset index, builds the game's
-own resource pack stack (`n3dsr-assets`: Java's lookup, filter, overlay and format rules, from
-`options.txt`) and makes the app's end stone icons from it; texture atlases are next. `n3dsr-core` has `JavaRandom`
+instance. (c) is under way: `n3dsr-build` reads a proof, verifies the jar and asset index, builds the
+game's own resource pack stack (`n3dsr-assets`: Java's lookup, filter, overlay and format rules,
+from `options.txt`), makes the end stone icons, and builds all 15 atlases (sprites and sources as
+Java gathers them, Java's mipmaps verified identical, packed into RGB565/RGBA4 GPU pages). Next:
+the textures outside atlases (entities, environment, fonts…). `n3dsr-core` has `JavaRandom`
 (`java.util.Random`, bit-exact). `DESIGN.md` is the spec (a draft, RFC 2119 MUST/SHOULD
 wording); `PARITY.md` lists deliberate deviations from Java Edition.
 
@@ -26,7 +28,10 @@ java tools/vectors/SrgbTables.java > crates/assets/src/srgb_tables.rs  # Java's 
 cd mod && JAVA_HOME=/usr/lib/jvm/java-25-openjdk ./gradlew mipmapVectors  # vanilla's mip levels → assets/<release>/vectors/
 ```
 
-`n3dsr-build` writes what it converts into the gitignored `assets/<release>/` (and the icon to
+`n3dsr-build` writes what it converts into the gitignored `assets/<release>/`: `romfs/` for the
+app (atlas pages `atlases/<name>-<n>.bin`, header `N3TX` + tiled 16-bit levels, and their JSON
+index), `preview/` PNGs of every page as packed and as the 3DS will show it (the user likes them
+opened in Gwenview), `vectors/` for parity tests (and the icon to
 `crates/client/icon.png`, also gitignored, where `cargo-3ds` finds it). It's Mojang's content
 derived from the player's jar: never commit it, and check `git status` shows none of it.
 

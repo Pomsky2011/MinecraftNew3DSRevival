@@ -14,7 +14,7 @@ use clap::Parser;
 use n3dsr_assets::pack::Pack;
 use n3dsr_assets::source::{AssetIndex, Layered, Zip};
 use n3dsr_assets::stack::Stack;
-use n3dsr_assets::{atlas, options};
+use n3dsr_assets::{atlas, options, pica, stitch};
 use proof::Proof;
 
 /// The repository, which a player builds from: converted assets go in its gitignored `assets/`.
@@ -55,6 +55,70 @@ fn pack_stack(proof: &Proof) -> Result<Stack> {
     Ok(stack)
 }
 
+/// Every atlas the game builds, packed into GPU pages with their index, and previews of each page
+/// (DESIGN.md §3.6).
+fn atlases(stack: &Stack, out: &Path) -> Result<()> {
+    let romfs = out.join("romfs/atlases");
+    let preview = out.join("preview");
+    fs::create_dir_all(&romfs)?;
+    fs::create_dir_all(&preview)?;
+    println!("Atlases:");
+    for &(name, mipmaps) in atlas::KNOWN {
+        let atlas = atlas::load(stack, name)?;
+        let wanted = if mipmaps { MIP_LEVELS } else { 0 };
+        let stitched = stitch::stitch(&atlas.sprites, wanted);
+        let pages: Vec<String> = stitched
+            .pages
+            .iter()
+            .map(|p| format!("{}×{} {:?}", p.width(), p.height(), p.format))
+            .collect();
+        println!(
+            "  {name}: {} sprites, {} mip levels, pages {}",
+            atlas.sprites.len(),
+            stitched.levels,
+            pages.join(", ")
+        );
+        for note in &atlas.notes {
+            println!("    note: {note}");
+        }
+        let limiting = stitch::limiting_sprites(&atlas.sprites, wanted);
+        if !limiting.is_empty() {
+            let named: Vec<&str> = limiting.iter().take(3).map(|(id, _)| *id).collect();
+            println!(
+                "    note: {} sprite(s) limit the mip levels from {wanted} to {}, as in the game: {}{}",
+                limiting.len(),
+                stitched.levels,
+                named.join(", "),
+                if limiting.len() > 3 { ", …" } else { "" }
+            );
+        }
+        for (index, page) in stitched.pages.iter().enumerate() {
+            fs::write(romfs.join(format!("{name}-{index}.bin")), page.to_bytes())?;
+            page.levels[0].write_png(&preview.join(format!("{name}-{index}.png")))?;
+            let gpu = page.to_bytes();
+            let on_3ds = pica::untile(&gpu[10..], page.width(), page.height(), page.format);
+            on_3ds.write_png(&preview.join(format!("{name}-{index}-3ds.png")))?;
+        }
+        let index = serde_json::json!({
+            "levels": stitched.levels,
+            "pages": stitched.pages.iter().map(|p| serde_json::json!({
+                "format": p.format, "width": p.width(), "height": p.height(), "levels": p.levels.len(),
+            })).collect::<Vec<_>>(),
+            "sprites": stitched.sprites,
+        });
+        fs::write(
+            romfs.join(format!("{name}.json")),
+            serde_json::to_vec(&index)?,
+        )?;
+    }
+    println!("Previews: {}", preview.display());
+    Ok(())
+}
+
+/// Mip levels for atlases that have them: Java's most (its Mipmap Levels option's top), which
+/// the 3DS can use fewer of.
+const MIP_LEVELS: u32 = 4;
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let proof = Proof::read(&cli.proof)?;
@@ -86,37 +150,6 @@ fn main() -> Result<()> {
         client_icon.display()
     );
 
-    println!("Atlases:");
-    for definition in stack.list("minecraft", "atlases")? {
-        let Some(name) = definition
-            .strip_prefix("atlases/")
-            .and_then(|n| n.strip_suffix(".json"))
-        else {
-            continue;
-        };
-        let atlas = atlas::load(&stack, name)?;
-        let animated = atlas
-            .sprites
-            .iter()
-            .filter(|s| s.animation.is_some())
-            .count();
-        let interpolated = atlas
-            .sprites
-            .iter()
-            .filter(|s| s.animation.as_ref().is_some_and(|a| a.interpolate))
-            .count();
-        let frames: u32 = atlas
-            .sprites
-            .iter()
-            .map(|s| s.animation.as_ref().map_or(1, |_| s.frame_count()))
-            .sum();
-        println!(
-            "  {name}: {} sprites, {frames} frames ({animated} animated, {interpolated} interpolated)",
-            atlas.sprites.len()
-        );
-        for note in &atlas.notes {
-            println!("    note: {note}");
-        }
-    }
+    atlases(&stack, &out)?;
     Ok(())
 }
