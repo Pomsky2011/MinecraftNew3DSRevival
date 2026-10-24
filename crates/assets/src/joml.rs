@@ -62,7 +62,7 @@ pub fn cos_from_sin(sin: f32, angle: f32) -> f32 {
     let a = angle + PI_OVER_2_F;
     let mut b = a - ((a / PI_TIMES_2_F) as i32) as f32 * PI_TIMES_2_F;
     if (b as f64) < 0.0 {
-        b = PI_TIMES_2_F + b;
+        b += PI_TIMES_2_F;
     }
     if b >= PI_F { -cos } else { cos }
 }
@@ -631,10 +631,10 @@ mod tests {
     fn invert_affine_undoes_a_rotation() {
         let m = Mat4::rotation_axis(0.3, [0.0, 1.0, 0.0]);
         let back = m.invert_affine().mul(&m);
-        for col in 0..3 {
-            for row in 0..3 {
+        for (col, column) in back.m.iter().take(3).enumerate() {
+            for (row, value) in column.iter().take(3).enumerate() {
                 let want = if col == row { 1.0 } else { 0.0 };
-                assert!((back.m[col][row] - want).abs() < 1e-6);
+                assert!((value - want).abs() < 1e-6);
             }
         }
     }

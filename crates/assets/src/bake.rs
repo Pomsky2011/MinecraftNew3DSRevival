@@ -432,6 +432,8 @@ fn bake_elements(
 /// An element rotation's origin and matrix (`BlockElementRotation.computeTransform`).
 fn element_transform(rotation: &crate::model::ElementRotation) -> (Vec3, Mat4) {
     let degrees = (std::f64::consts::PI / 180.0) as f32;
+    // `angle == 0.0` as Java's, true for -0.0 too, rather than a float pattern.
+    #[allow(clippy::redundant_guards)]
     let mut matrix = match rotation.value {
         RotationValue::Euler([x, y, z]) => {
             Mat4::rotation_zyx(z * degrees, y * degrees, x * degrees)
@@ -541,10 +543,10 @@ fn bake_face(
 
     let n = joml::normal(positions[0], positions[1], positions[2]);
     let facing = closest_direction(n);
-    if rotation.is_none() {
-        if let Some(facing) = facing {
-            recalculate_winding(&mut positions, &mut uvs, facing);
-        }
+    if rotation.is_none()
+        && let Some(facing) = facing
+    {
+        recalculate_winding(&mut positions, &mut uvs, facing);
     }
     Quad {
         positions,
