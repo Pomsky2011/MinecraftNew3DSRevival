@@ -97,7 +97,9 @@ unsafe fn verify_ownership(minecraft: &Minecraft) -> Result<(String, String), St
         let server_id = java::jstr(&server_id);
 
         sessions.join_server(profile_id, user.get_access_token(), server_id);
-        let result = sessions.has_joined_server(user.get_name(), server_id, std::ptr::null_mut());
+        // No address: like an online-mode server without prevent-proxy-connections.
+        let no_address = java::java_null() as *mut java::InetAddress;
+        let result = sessions.has_joined_server(user.get_name(), server_id, no_address);
         if java::null(result as *mut JObject) {
             return Err("Mojang didn't confirm this session; is the game signed in?".into());
         }

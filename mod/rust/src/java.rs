@@ -19,6 +19,18 @@ impl JObject {
 #[jvm::class("java.lang.String")]
 impl JString {}
 
+#[jvm::interface("java.util.Map", rename_all = "camelCase")]
+impl Map {
+    #[jvm::method]
+    pub fn get(&self, key: *mut JObject) -> *mut JObject {}
+}
+
+#[jvm::class("java.util.Collections", rename_all = "camelCase")]
+impl Collections {
+    #[jvm::static_method]
+    pub fn empty_map() -> *mut Map {}
+}
+
 #[jvm::class("java.util.Objects", rename_all = "camelCase")]
 impl Objects {
     #[jvm::static_method]
@@ -170,6 +182,13 @@ pub fn jstr(s: &str) -> *mut JString {
 /// the backend lowers that as one of its emulated pointers, and a Java object isn't one.
 pub fn null(object: *mut JObject) -> bool {
     Objects::is_null(object)
+}
+
+/// Java's `null`, for passing where Java takes one (cast it to the parameter's type). Not
+/// `ptr::null_mut()`: the backend lowers that to a `Pointer.nullPointer` that doesn't exist for
+/// Java classes. An empty map's `get` always returns `null`.
+pub fn java_null() -> *mut JObject {
+    unsafe { (*Collections::empty_map()).get(jstr("") as *mut JObject) }
 }
 
 /// A Java string as a Rust one; `None` for Java's `null`.

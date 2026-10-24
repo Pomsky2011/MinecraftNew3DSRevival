@@ -49,6 +49,8 @@ Backend gotchas, each found the hard way:
 - Bindings check the descriptor against the Rust types: declare every class a signature names
   (e.g. `ZipEntry`), and a static field with its exact declared type (`DefaultedRegistry`, not
   `Registry`). Java arrays of objects can't be bound yet; get the data another way.
+- Never `ptr::null_mut()` for a Java type (lowered to a `Pointer.nullPointer` that doesn't
+  exist); pass `java::java_null() as *mut T`.
 - `rename_all = "camelCase"` mangles acronyms (`random_uuid` → `randomUuid`); give `name =
   "randomUUID"`.
 - Avoid crates whose types have hand-written `Drop` impls in the mod (e.g. `sha1` →
