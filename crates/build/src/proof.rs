@@ -9,12 +9,14 @@ use serde::Deserialize;
 use sha1::{Digest, Sha1};
 
 /// The proof format this build reads; the mod's `FORMAT`.
-const FORMAT: u32 = 1;
+const FORMAT: u32 = 2;
 
 #[derive(Debug, Deserialize)]
 pub struct Proof {
     pub format: u32,
     pub release: String,
+    /// Where `options.txt` and `resourcepacks/` are.
+    pub game_directory: PathBuf,
     pub client_jar: GameFile,
     pub assets: Assets,
 }
@@ -96,6 +98,7 @@ mod tests {
         Proof {
             format: FORMAT,
             release: "1.21.11".into(),
+            game_directory: dir.to_owned(),
             client_jar: GameFile {
                 path: dir.join("client.jar"),
                 sha1: jar_sha1.into(),
@@ -142,8 +145,8 @@ mod tests {
         // Shaped like the mod's output (account and time are ignored here).
         fs::write(
             &path,
-            r#"{"format": 1, "release": "1.21.11",
-            "account": {"name": "x", "uuid": "y"}, "checked_at": "z",
+            r#"{"format": 2, "release": "1.21.11",
+            "account": {"name": "x", "uuid": "y"}, "checked_at": "z", "game_directory": "/g",
             "client_jar": {"path": "/a/client.jar", "sha1": "ab"},
             "assets": {"directory": "/a/assets", "index": "29", "index_sha1": "cd"}}"#,
         )

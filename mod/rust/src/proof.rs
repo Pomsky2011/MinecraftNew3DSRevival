@@ -13,8 +13,8 @@ use sha1_smol::Sha1;
 
 use crate::java::{self, GameFolders, Instant, JObject, Minecraft, SharedConstants, Uuid, ZipFile};
 
-/// Bumped when the proof's shape changes, so `n3dsr-build` can tell.
-const FORMAT: u32 = 1;
+/// Bumped when the proof's shape changes, so `n3dsr-build` can tell. 2 added `game_directory`.
+const FORMAT: u32 = 2;
 
 /// The client jar's one class Mojang never obfuscates: the game's entrypoint.
 const CLIENT_MAIN: &str = "net/minecraft/client/main/Main.class";
@@ -25,6 +25,8 @@ struct Proof {
     release: String,
     account: Account,
     checked_at: String,
+    /// Where `options.txt` and `resourcepacks/` are, for the resource packs (DESIGN.md §3.5).
+    game_directory: String,
     client_jar: File,
     assets: Assets,
 }
@@ -59,7 +61,8 @@ pub fn check_and_write() -> Result<String, String> {
     let (name, uuid) = unsafe { verify_ownership(minecraft)? };
 
     let client_jar = find_client_jar().ok_or("couldn't find the client jar on the classpath")?;
-    let (assets_dir, index) = asset_folders().ok_or("the game's asset folders weren't recorded")?;
+    let folders = game_folders().ok_or("the game's folders weren't recorded")?;
+    let (game_dir, assets_dir, index) = folders;
     let index_file = Path::new(&assets_dir).join("indexes").join(format!("{index}.json"));
 
     let proof = Proof {
@@ -67,6 +70,7 @@ pub fn check_and_write() -> Result<String, String> {
         release: release.clone(),
         account: Account { name, uuid },
         checked_at: java::display(Instant::now() as *mut JObject),
+        game_directory: game_dir,
         client_jar: File {
             sha1: sha1_of(Path::new(&client_jar))?,
             path: client_jar,
@@ -128,16 +132,17 @@ fn find_client_jar() -> Option<String> {
         .map(str::to_owned)
 }
 
-/// The asset directory and index the game was started with (`--assetsDir`, `--assetIndex`), as
-/// `MinecraftMixin` recorded them.
-fn asset_folders() -> Option<(String, String)> {
+/// The game directory, asset directory and asset index the game was started with (`--gameDir`,
+/// `--assetsDir`, `--assetIndex`), as `MinecraftMixin` recorded them.
+fn game_folders() -> Option<(String, String, String)> {
     unsafe {
         let folders = GameFolders::folders();
         if java::null(folders as *mut JObject) {
             return None;
         }
-        let directory = java::rstr((*(*folders).asset_directory()).get_path())?;
-        Some((directory, java::rstr((*folders).asset_index())?))
+        let game = java::rstr((*(*folders).game_directory()).get_path())?;
+        let assets = java::rstr((*(*folders).asset_directory()).get_path())?;
+        Some((game, assets, java::rstr((*folders).asset_index())?))
     }
 }
 

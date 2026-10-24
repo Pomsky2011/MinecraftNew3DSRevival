@@ -154,6 +154,8 @@ impl GameProfile {
 #[jvm::class("net.minecraft.client.main.GameConfig.FolderData", rename_all = "camelCase")]
 impl FolderData {
     #[jvm::field]
+    pub fn game_directory(&self) -> *mut JFile {}
+    #[jvm::field]
     pub fn asset_directory(&self) -> *mut JFile {}
     #[jvm::field]
     pub fn asset_index(&self) -> *mut JString {}
