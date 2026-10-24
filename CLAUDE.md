@@ -28,6 +28,7 @@ java tools/vectors/JavaRandomVectors.java > crates/core/tests/data/java_random.t
 java tools/vectors/SrgbTables.java > crates/assets/src/srgb_tables.rs  # Java's sRGB tables, bit-exact
 cd mod && JAVA_HOME=/usr/lib/jvm/java-25-openjdk ./gradlew mipmapVectors  # vanilla's mip levels → assets/<release>/vectors/
 cd mod && JAVA_HOME=/usr/lib/jvm/java-25-openjdk ./gradlew blockModelVectors  # vanilla's baked quads (bake_vanilla.rs)
+cd mod && JAVA_HOME=/usr/lib/jvm/java-25-openjdk ./gradlew itemModelVectors   # vanilla's item models (bake_items_vanilla.rs)
 ```
 
 `n3dsr-build` writes what it converts into the gitignored `assets/<release>/`: `romfs/` for the

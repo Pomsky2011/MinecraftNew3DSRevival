@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::joml::{self, Mat3, Mat4, Quat, Vec3};
 use crate::model::{Axis, Direction, Element, Face, Id, Model, Quadrant, RotationValue, Slot};
+use crate::sprite::Sprite;
 
 /// What baking a face produces.
 #[derive(Clone, Debug, PartialEq)]
@@ -223,6 +224,24 @@ pub struct Models {
 }
 
 pub const MISSING_MODEL: &str = "minecraft:builtin/missing";
+/// The flat item model, generated from its layers' sprites (`ItemModelGenerator`).
+pub const GENERATED_MODEL: &str = "minecraft:builtin/generated";
+const LAYERS: [&str; 5] = ["layer0", "layer1", "layer2", "layer3", "layer4"];
+
+/// Finds a texture's sprite for `builtin/generated`, as `block_or_item` materials do: the items
+/// atlas, then the blocks atlas; `None` falls back to the missing texture.
+pub trait Sprites {
+    fn sprite(&self, texture: &str) -> Option<&Sprite>;
+}
+
+/// No sprites: for block models, which never need them.
+pub struct NoSprites;
+
+impl Sprites for NoSprites {
+    fn sprite(&self, _: &str) -> Option<&Sprite> {
+        None
+    }
+}
 pub const MISSING_TEXTURE: &str = "minecraft:missingno";
 
 impl Models {
@@ -245,6 +264,10 @@ impl Models {
                 return None;
             }
             seen.push(current.clone());
+            if current == GENERATED_MODEL {
+                chain.push(generated_model());
+                return Some(chain);
+            }
             let model = match self.files.get(&current) {
                 Some(model) if current != MISSING_MODEL => model.clone(),
                 _ => {
@@ -264,23 +287,209 @@ impl Models {
         }
     }
 
-    /// Bakes `id` in `state`; a model in a parent cycle bakes as the missing model.
-    pub fn bake(&mut self, id: &str, state: &ModelState) -> Baked {
+    /// Bakes `id` in `state`; a model in a parent cycle bakes as the missing model. `sprites` is
+    /// only read for `builtin/generated` models.
+    pub fn bake(&mut self, id: &str, state: &ModelState, sprites: &dyn Sprites) -> Baked {
         let chain = self.chain(id).unwrap_or_else(|| vec![missing_model()]);
-        let elements = chain
-            .iter()
-            .find_map(|m| m.elements.clone())
-            .unwrap_or_default();
         let ambient_occlusion = chain
             .iter()
             .find_map(|m| m.ambient_occlusion)
             .unwrap_or(true);
         let textures = resolve_textures(&chain, id, &mut self.notes);
+        // The nearest model with geometry: its elements, or the generated ones.
+        let elements = chain
+            .iter()
+            .find_map(|m| match &m.elements {
+                Some(elements) => Some(elements.clone()),
+                None if m.parent.as_deref() == Some(GENERATED_MARKER) => {
+                    Some(generated_elements(&textures, sprites))
+                }
+                None => None,
+            })
+            .unwrap_or_default();
         Baked {
             quads: bake_elements(&elements, &textures, state),
             ambient_occlusion,
         }
     }
+
+    /// Whether `id`'s geometry is generated from its layers (Java's own quad order for those is
+    /// random, from hash sets: compare them as sets).
+    pub fn is_generated(&mut self, id: &str) -> bool {
+        self.chain(id).is_some_and(|chain| {
+            chain
+                .iter()
+                .find(|m| m.elements.is_some() || m.parent.as_deref() == Some(GENERATED_MARKER))
+                .is_some_and(|m| m.elements.is_none())
+        })
+    }
+}
+
+/// Marks the generated model in a chain (it has no file of its own).
+const GENERATED_MARKER: &str = "<generated>";
+
+/// `ItemModelGenerator`'s own model: `particle` from `layer0`, its geometry generated.
+fn generated_model() -> Model {
+    Model {
+        parent: Some(GENERATED_MARKER.into()),
+        textures: vec![("particle".into(), Slot::Reference("layer0".into()))],
+        gui_light: Some("front".into()),
+        ..Model::default()
+    }
+}
+
+/// The elements `ItemModelGenerator` makes: per layer present, a 16×16×1 slab with front and back,
+/// and a one-pixel side face along every edge between an opaque pixel and a transparent one (or
+/// the border), across the sprite's frames.
+fn generated_elements(textures: &BTreeMap<String, Id>, sprites: &dyn Sprites) -> Vec<Element> {
+    let missing = crate::atlas::missing();
+    let mut elements = Vec::new();
+    for (index, layer) in LAYERS.iter().enumerate() {
+        let Some(texture) = textures.get(*layer) else {
+            break;
+        };
+        let sprite = sprites.sprite(texture).unwrap_or(&missing);
+        let face = |uv: [f32; 4]| Face {
+            cull: None,
+            tint: index as i32,
+            texture: (*layer).to_owned(),
+            uv: Some(uv),
+            rotation: Quadrant(0),
+        };
+        elements.push(Element {
+            from: [0.0, 0.0, 7.5],
+            to: [16.0, 16.0, 8.5],
+            rotation: None,
+            shade: true,
+            light_emission: 0,
+            faces: vec![
+                (Direction::North, face([16.0, 0.0, 0.0, 16.0])),
+                (Direction::South, face([0.0, 0.0, 16.0, 16.0])),
+            ],
+        });
+        let f = 16.0 / sprite.frame_width as f32;
+        let g = 16.0 / sprite.frame_height as f32;
+        for (side, x, y) in side_faces(sprite) {
+            let (h, j) = (x as f32, y as f32);
+            let k = h + 0.1;
+            let l = h + 1.0 - 0.1;
+            let (m, n) = if matches!(side, Side::Up | Side::Down) {
+                (j + 0.1, j + 1.0 - 0.1)
+            } else {
+                (j + 1.0 - 0.1, j + 0.1)
+            };
+            let (mut o, mut p, mut q, mut r) = (h, j, h, j);
+            match side {
+                Side::Up => q += 1.0,
+                Side::Down => {
+                    q += 1.0;
+                    p += 1.0;
+                    r += 1.0;
+                }
+                Side::Left => r += 1.0,
+                Side::Right => {
+                    o += 1.0;
+                    q += 1.0;
+                    r += 1.0;
+                }
+            }
+            o *= f;
+            q *= f;
+            p *= g;
+            r *= g;
+            p = 16.0 - p;
+            r = 16.0 - r;
+            // Java scales u by f then g and v by f then g here; kept as it is.
+            let face = face([k * f, m * f, l * g, n * g]);
+            let (from, to) = match side {
+                Side::Up => ([o, p, 7.5], [q, p, 8.5]),
+                Side::Down => ([o, r, 7.5], [q, r, 8.5]),
+                Side::Left => ([o, p, 7.5], [o, r, 8.5]),
+                Side::Right => ([q, p, 7.5], [q, r, 8.5]),
+            };
+            elements.push(Element {
+                from,
+                to,
+                rotation: None,
+                shade: true,
+                light_emission: 0,
+                faces: vec![(side.direction(), face)],
+            });
+        }
+    }
+    elements
+}
+
+/// An edge of an item sprite's pixel (`SideDirection`): left and right face east and west.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum Side {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl Side {
+    fn direction(self) -> Direction {
+        match self {
+            Side::Up => Direction::Up,
+            Side::Down => Direction::Down,
+            Side::Left => Direction::East,
+            Side::Right => Direction::West,
+        }
+    }
+
+    /// The neighbour checked: (x, y) less the direction's step (`getStepX`, `getStepY`).
+    fn neighbour(self, x: i32, y: i32) -> (i32, i32) {
+        match self {
+            Side::Up => (x, y - 1),
+            Side::Down => (x, y + 1),
+            Side::Left => (x - 1, y),
+            Side::Right => (x + 1, y),
+        }
+    }
+}
+
+/// `getSideFaces`: each opaque pixel's edges onto a transparent pixel or the border, over every
+/// frame the animation uses, deduplicated (Java's is a hash set in random order; this is sorted).
+fn side_faces(sprite: &Sprite) -> Vec<(Side, i32, i32)> {
+    let (w, h) = (sprite.frame_width as i32, sprite.frame_height as i32);
+    let frames: Vec<u32> = match &sprite.animation {
+        Some(animation) => {
+            let mut seen = Vec::new();
+            for frame in &animation.frames {
+                if !seen.contains(&frame.index) {
+                    seen.push(frame.index);
+                }
+            }
+            seen
+        }
+        None => vec![0],
+    };
+    let transparent = |frame: u32, x: i32, y: i32| {
+        if x < 0 || y < 0 || x >= w || y >= h {
+            return true;
+        }
+        let (fx, fy) = sprite.frame_origin(frame);
+        sprite.sheet.texel(fx + x as u32, fy + y as u32)[3] == 0
+    };
+    let mut faces = std::collections::BTreeSet::new();
+    for frame in frames {
+        for y in 0..h {
+            for x in 0..w {
+                if transparent(frame, x, y) {
+                    continue;
+                }
+                for side in [Side::Up, Side::Down, Side::Left, Side::Right] {
+                    let (nx, ny) = side.neighbour(x, y);
+                    if transparent(frame, nx, ny) {
+                        faces.insert((side, x, y));
+                    }
+                }
+            }
+        }
+    }
+    faces.into_iter().collect()
 }
 
 /// Java's missing model: a full cube, every face the missing texture.
@@ -645,6 +854,7 @@ mod tests {
         let baked = models.bake(
             "minecraft:block/stone",
             &ModelState::new(Octahedral::IDENTITY, false),
+            &NoSprites,
         );
         let order: Vec<Direction> = baked.quads.iter().map(|q| q.cull.unwrap()).collect();
         use Direction::*;
@@ -670,7 +880,11 @@ mod tests {
                 "faces": {"north": {"texture": "#a", "cullface": "north"}}}]}"##,
         )]);
         let y90 = Octahedral::from_xyz(Quadrant(0), Quadrant(1), Quadrant(0));
-        let baked = models.bake("minecraft:block/x", &ModelState::new(y90, false));
+        let baked = models.bake(
+            "minecraft:block/x",
+            &ModelState::new(y90, false),
+            &NoSprites,
+        );
         assert_eq!(baked.quads[0].cull, Some(Direction::East));
         assert_eq!(baked.quads[0].facing, Direction::East);
     }
@@ -683,7 +897,7 @@ mod tests {
         ]);
         let state = ModelState::new(Octahedral::IDENTITY, false);
         for id in ["minecraft:block/a", "minecraft:block/nowhere"] {
-            let baked = models.bake(id, &state);
+            let baked = models.bake(id, &state, &NoSprites);
             assert_eq!(baked.quads.len(), 6);
             assert!(
                 baked

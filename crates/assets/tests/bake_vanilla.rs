@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::Read;
 
-use n3dsr_assets::bake::{ModelState, Models, Octahedral, Quad};
+use n3dsr_assets::bake::{ModelState, Models, NoSprites, Octahedral, Quad};
 use n3dsr_assets::model::{Direction, Model, Quadrant};
 
 const VECTORS: &str = concat!(
@@ -91,7 +91,7 @@ fn matches_the_game_s_baking() {
                 uvlock,
             )
         });
-        let baked = models.bake(model, state);
+        let baked = models.bake(model, state, &NoSprites);
         let theirs: Vec<&str> = (0..count.parse::<usize>().unwrap())
             .map(|_| lines.next().unwrap())
             .collect();

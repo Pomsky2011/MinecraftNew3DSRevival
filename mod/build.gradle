@@ -95,3 +95,14 @@ tasks.register('blockModelVectors', JavaExec) {
 	doFirst { out.parentFile.mkdirs() }
 	args proof, out.path
 }
+
+tasks.register('itemModelVectors', JavaExec) {
+	group = 'verification'
+	description = "Writes vanilla's baked item models for crates/assets/tests/bake_items_vanilla.rs."
+	classpath = sourceSets.vectors.runtimeClasspath
+	mainClass = 'io.github.pomsky2011.n3dsr.vectors.ItemModelVectors'
+	def proof = "${System.getProperty('user.home')}/.config/n3dsr/proofs/${project.minecraft_version}.json"
+	def out = file("../assets/${project.minecraft_version}/vectors/item_models.txt")
+	doFirst { out.parentFile.mkdirs() }
+	args proof, out.path
+}
