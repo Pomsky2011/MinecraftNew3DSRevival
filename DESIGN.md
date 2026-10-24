@@ -131,6 +131,39 @@ each release's formats itself.
 makes both, since `smdhtool`'s own small icon averages each block's top-left and bottom-right
 pixels twice and the other two never. Builds without a proof keep libctru's default icon.
 
+3.5. **Resource packs, as Java takes them** (decided §13): a zip or folder with `pack.mcmeta` and
+`assets/`, stacked over the vanilla jar, each pack overriding the ones below it, with Java's pack
+format check (`major.minor` from 1.21.x), overlays (per-format subfolders, 1.20.2 onward) and
+filters (`filter.block`, hiding lower packs' files). At build time the stack is the game's own:
+`options.txt`'s `resourcePacks`, lowest priority first (`vanilla`, built-ins such as
+`programmer_art`, and `file/<name>` from `resourcepacks/`; packs that mods provide are left out,
+with a warning), so the proof records the game directory (proof format 2). Packs can also be
+dropped on the SD card and chosen in the game, converted on the 3DS when chosen. The pack stack
+and all the texture conversion below therefore live in a crate both run, `n3dsr-assets` (3DS and
+PC, pure Rust: `png`, `zip`), with `n3dsr-build` a front end to it.
+
+3.6. **Textures** (decided §13): everything, in step 2c.
+- Atlases are built from the stack's `atlases/*.json` (1.19.3 onward; earlier releases' atlas
+  contents are code, per release): `directory`, `single`, `paletted_permutations` (armor trims),
+  `unstitch` and `filter` sources. 1.21.11 has 15 atlases; the block atlas is some 1,650 tiles of
+  16×16 with every animation frame, within one 1024×1024 page (the PICA200's largest texture).
+  Textures outside atlases (entities, environment, fonts and the like) become textures of their
+  own, padded to the GPU's power-of-two sizes.
+- Formats: sprites with any transparency go to RGBA4 pages, opaque ones to RGB565 pages, so an
+  atlas can be two pages.
+- Mipmaps as the release's Java makes them. 1.21.11's: a strategy per texture (`texture`
+  section's `mipmap_strategy`: `mean`, `cutout`, `strict_cutout`, `dark_cutout`; `auto` is cutout
+  if any pixel is transparent), the 2×2 mean in linear light through Java's 10-bit tables, alpha
+  rescaled per level to keep the level-0 alpha-test coverage (`alpha_cutoff_bias`), and cutout
+  textures' transparent pixels first filled from their nearest opaque ones (`solidify`, or a
+  darkened colour for `dark_cutout`). Levels up to the game's Mipmap Levels option (0–4).
+- Animations: every frame gets its own tile, and faces switch frames by their UVs on Java's
+  timing (`frametime`, `frames`). Interpolated animations (23 in 1.21.11) blend on the GPU: their
+  faces carry the current and next frames' UVs and the texture combiner mixes them by the tick's
+  progress, as Java does each tick.
+- Each page's PNG preview is written beside it (as packed, and decoded back from its GPU format),
+  for looking at.
+
 ## 4. Architecture
 
 4.1. One Rust workspace:
@@ -338,6 +371,10 @@ emulator, per step. Hardware is the authority: Azahar reported nonsense for a th
   export afterwards (§3). The mod is Rust compiled to JVM bytecode where that works, built per
   release by Stonecutter (§3.1.1). Mod Menu's config screen, a client command and a launch
   argument all start an export.
+- 2026-10-23 (user): resource packs as Java takes them, from the game's own enabled list at build
+  time and from the SD card at run time (§3.5); all textures in step 2c, RGB565 for opaque
+  sprites and RGBA4 for the rest, every animation frame in the atlas, interpolation blended on
+  the GPU, Java's mipmapping (§3.6).
 - 2026-10-23 (user): the app's icon is the player's end stone texture, the small one averaged
   down from the large (§3.4.1).
 - 2026-10-23 (user): the mod's proofs go in our config directory; its config screen waits for a
