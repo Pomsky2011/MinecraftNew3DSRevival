@@ -7,8 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Early. `DESIGN.md` §14 step 1 is done: `n3dsr-client` draws a textured cube in stereo and prints
 a hardware probe (cores, memory) on the bottom screen. Step 2's (a) and (b) are done: the
 ownership mod (`mod/`, 1.21.11) checks ownership and writes a proof, verified in the user's Prism
-instance. (c) has begun: `n3dsr-build` reads a proof, verifies the jar and asset index, and makes the app's
-end stone icons; texture atlases are next. `n3dsr-core` has `JavaRandom`
+instance. (c) has begun: `n3dsr-build` reads a proof, verifies the jar and asset index, builds the game's
+own resource pack stack (`n3dsr-assets`: Java's lookup, filter, overlay and format rules, from
+`options.txt`) and makes the app's end stone icons from it; texture atlases are next. `n3dsr-core` has `JavaRandom`
 (`java.util.Random`, bit-exact). `DESIGN.md` is the spec (a draft, RFC 2119 MUST/SHOULD
 wording); `PARITY.md` lists deliberate deviations from Java Edition.
 
@@ -129,6 +130,7 @@ can't be called `core` without clashing with Rust's `core`):
 | Crate | Runs on | Role |
 | --- | --- | --- |
 | `n3dsr-export` (planned, `mod/`) | PC, in Minecraft | Fabric-family mod (Fabric 1.14+, Legacy Fabric 1.13.2, Ornithe 1.13/1.13.1), built per release with Stonecutter; Rust compiled to JVM bytecode via `rustc_codegen_jvm` where possible, Java only for entrypoints/mixins (decided). Does only the ownership check, as online-mode servers do (vanilla `join` → public `hasJoined`; never handle the token or call `api.minecraftservices.com`), and writes a proof file (account, release, jar/asset-index paths + SHA-1s). Triggered from Mod Menu's config screen, `/n3dsr export`, or a launch argument |
+| `n3dsr-assets` | 3DS + PC | Resource packs and asset conversion, run by `n3dsr-build` and by the 3DS app for packs added on the SD card (`DESIGN.md` §3.5), so pure Rust only. Its pack rules mirror Java's `FallbackResourceManager`: top pack wins, a pack's `filter` stops the search below it, `.mcmeta` only from the texture's pack or above, overlays last-listed first |
 | `n3dsr-build` | PC | Run by the player on a proof file: verifies the SHA-1s, reads the launcher-installed client jar and asset objects (no sign-in, no downloading), parses each release's formats itself; convert assets into RomFS (texture atlases in PICA200 formats, baked block-model quads, ADPCM/Vorbis audio, data packs compiled to binary tables, density functions compiled to bytecode); then build `.3dsx`/`.cia` |
 | `n3dsr-core` | 3DS + PC | The game itself: registries, chunks, world, entities, ticking, worldgen, saves. **Must contain no 3DS-specific code** so it builds and tests on a PC |
 | `n3dsr-protocol` | 3DS + PC | Java's packets as types and codecs |

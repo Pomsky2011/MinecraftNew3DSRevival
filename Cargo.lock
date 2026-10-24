@@ -570,18 +570,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "n3dsr-assets"
+version = "0.0.0"
+dependencies = [
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "zip",
+]
+
+[[package]]
 name = "n3dsr-build"
 version = "0.0.0"
 dependencies = [
  "anyhow",
  "clap",
  "hex",
+ "n3dsr-assets",
  "png",
  "serde",
  "serde_json",
  "sha1",
  "tempfile",
- "zip",
 ]
 
 [[package]]

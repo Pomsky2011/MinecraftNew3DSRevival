@@ -11,8 +11,9 @@ use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 
-/// Where the texture is in every release's jar from 1.13 (which renamed `blocks` to `block`).
-pub const TEXTURE: &str = "assets/minecraft/textures/block/end_stone.png";
+/// The texture, in the `minecraft` namespace, as in every release from 1.13 (which renamed
+/// `blocks` to `block`).
+pub const TEXTURE: &str = "textures/block/end_stone.png";
 pub const LARGE: u32 = 48;
 pub const SMALL: u32 = 24;
 
