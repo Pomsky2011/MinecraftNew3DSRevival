@@ -5,6 +5,7 @@
 pub mod atlas;
 pub mod image;
 pub mod mipmap;
+pub mod model;
 pub mod options;
 pub mod pack;
 pub mod pica;

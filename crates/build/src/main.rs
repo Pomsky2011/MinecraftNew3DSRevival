@@ -15,7 +15,7 @@ use clap::Parser;
 use n3dsr_assets::pack::Pack;
 use n3dsr_assets::source::{AssetIndex, Layered, Zip};
 use n3dsr_assets::stack::Stack;
-use n3dsr_assets::{atlas, options, pica, standalone, stitch};
+use n3dsr_assets::{atlas, model, options, pica, standalone, stitch};
 use proof::Proof;
 
 /// The repository, which a player builds from: converted assets go in its gitignored `assets/`.
@@ -179,6 +179,30 @@ fn standalone(stack: &Stack, out: &Path, in_atlases: &BTreeSet<(String, String)>
     Ok(())
 }
 
+/// Every blockstate and model file, parsed (baking comes next).
+fn models(stack: &Stack) -> Result<()> {
+    let (mut states, mut models) = (0, 0);
+    for (namespace, path) in stack.list_all("blockstates")? {
+        let file = stack.read(&namespace, &path)?.unwrap();
+        match model::BlockState::parse(&file.bytes) {
+            Ok(_) => states += 1,
+            Err(e) => println!("  note: {namespace}:{path}: {e}"),
+        }
+    }
+    for (namespace, path) in stack.list_all("models")? {
+        if !path.ends_with(".json") {
+            continue;
+        }
+        let file = stack.read(&namespace, &path)?.unwrap();
+        match model::Model::parse(&file.bytes) {
+            Ok(_) => models += 1,
+            Err(e) => println!("  note: {namespace}:{path}: {e}"),
+        }
+    }
+    println!("Parsed {states} blockstates and {models} models");
+    Ok(())
+}
+
 /// Mip levels for atlases that have them: Java's most (its Mipmap Levels option's top), which
 /// the 3DS can use fewer of.
 const MIP_LEVELS: u32 = 4;
@@ -216,5 +240,6 @@ fn main() -> Result<()> {
 
     let in_atlases = atlases(&stack, &out)?;
     standalone(&stack, &out, &in_atlases)?;
+    models(&stack)?;
     Ok(())
 }

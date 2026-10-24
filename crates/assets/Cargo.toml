@@ -12,7 +12,8 @@ publish.workspace = true
 png = "0.18"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# arbitrary_precision keeps a number's text, so floats parse straight to f32 as Gson does.
+serde_json = { version = "1", features = ["arbitrary_precision"] }
 zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
