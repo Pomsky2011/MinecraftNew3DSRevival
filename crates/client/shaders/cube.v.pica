@@ -1,0 +1,26 @@
+; The cube's vertex shader: each position through one matrix (projection × model), the texture
+; coordinate through unchanged.
+
+.fvec transform[4]
+
+.constf ones(1.0, 1.0, 1.0, 1.0)
+
+.out outpos position
+.out outtc0 texcoord0
+
+.alias inpos v0
+.alias intc0 v1
+
+.proc main
+	; Positions arrive as xyz; w is 1.
+	mov r0.xyz, inpos
+	mov r0.w, ones
+
+	dp4 outpos.x, transform[0], r0
+	dp4 outpos.y, transform[1], r0
+	dp4 outpos.z, transform[2], r0
+	dp4 outpos.w, transform[3], r0
+
+	mov outtc0, intc0
+	end
+.end

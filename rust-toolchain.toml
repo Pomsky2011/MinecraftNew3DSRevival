@@ -1,0 +1,6 @@
+# The 3DS target (armv6k-nintendo-3ds) is tier 3: its standard library is built from source,
+# which needs nightly. Pinned so a nightly's changes to unstable internals can't break the build
+# unannounced; move it forward on purpose.
+[toolchain]
+channel = "nightly-2026-09-28"
+components = ["rust-src", "clippy", "rustfmt"]

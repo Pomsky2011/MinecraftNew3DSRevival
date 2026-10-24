@@ -10,6 +10,12 @@ publish.workspace = true
 [dependencies]
 n3dsr-server = { path = "../server", default-features = false }
 n3dsr-protocol = { path = "../protocol", default-features = false }
+# rust3ds publishes none of these to crates.io. The git specs must stay identical to the ones
+# citro3d uses itself (no `rev`), or Cargo sees two ctru-sys crates linking `ctru`; Cargo.lock
+# pins the commits instead.
+ctru-rs = { git = "https://github.com/rust3ds/ctru-rs.git" }
+ctru-sys = { git = "https://github.com/rust3ds/ctru-rs.git" }
+citro3d = { git = "https://github.com/rust3ds/citro3d-rs.git" }
 
 [features]
 default = ["mc1_21_11"]

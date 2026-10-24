@@ -106,8 +106,16 @@ jobs in the background, a chunk at a time, never inside a tick.
 
 4.4. **The hardware** (New 3DS): an 804 MHz quad-core ARM11 MPCore, 256 MB of FCRAM, the PICA200
 GPU. An app gets 124 MB of memory by default, or 178 MB if its extended header asks for it (which
-turns off the system browser and Miiverse overlay): we ask for 178 MB. Which cores an app may run
-threads on, and how much of the system core it can have, is open (§12).
+turns off the system browser and Miiverse overlay): we ask for 178 MB. That takes an extended
+header, so a `.cia`; a `.3dsx` gets the 124 MB of whatever title the Homebrew Launcher runs in
+(measured, §14 step 1).
+
+4.4.1. **Cores, measured on a New 3DS** (2026-10-23, Luma3DS, `.3dsx`, 804 MHz on): threads created
+on cores 0, 2 and 3 ran there, each at the same speed (a 2,000,000-iteration loop in 22.4, 22.4
+and 23.3 ms). A thread created on core 1 (the system core, with 30% of it granted first) ran on
+core 2 instead, at full speed; why is open (§12). So the server, world generation and lighting
+have cores 2 and 3 to themselves, the client keeping core 0. Rust's `std::thread` can't choose a
+core on the 3DS: such threads are created through libctru's `threadCreate`.
 
 ## 5. The simulation
 
@@ -196,8 +204,15 @@ listing) is the player's settings, each one off-able.
 ## 10. Language and toolchain
 
 10.1. Rust throughout: `ctru-rs` (the rust3ds project's safe wrapper over libctru) on the 3DS, with
-std. The GPU through citro3d: by its Rust bindings if they cover what §7 needs (§12), else a thin
-C layer over citro3d that the Rust client calls.
+std. The GPU through citro3d's Rust bindings, `citro3d` (decided §13): they cover render targets
+with depth, stereo projection, shaders (assembled by `picasso` at compile time), vertex and index
+buffers, textures and texture combiners. What they don't wrap yet (setting the depth test, alpha
+test and blending, which the passes of §7.2 need; fog) is called through `citro3d-sys` directly.
+None of rust3ds's crates are on crates.io: they come from Git, Cargo.lock pinning the commit.
+
+10.3. The toolchain is a pinned nightly (`rust-toolchain.toml`), since the 3DS target builds its
+standard library from source. Moving it is deliberate: rust3ds's on-device test harness tracks
+rustc's unstable test internals, which changed twice between June and September 2026.
 
 10.2. devkitPro's devkitARM, libctru and citro3d are build dependencies, as is the player's copy
 of Minecraft (§2.2).
@@ -212,14 +227,15 @@ physics cases are recorded from vanilla (a contraption's states tick by tick, an
 positions) and replayed against `core`.
 
 11.3. On the 3DS: frame time, tick time and memory, measured on hardware and in the Azahar
-emulator, per step.
+emulator, per step. Hardware is the authority: Azahar reported nonsense for a thread's core
+(`svcGetProcessorID`) and for memory in use, where the console gave sane values.
 
 ## 12. Open questions
 
-- Which of the New 3DS's four cores an app may use, and at what share (the system core's limit).
+- Why a thread created on core 1 runs on core 2 (§4.4.1), and whether core 1 is worth having at
+  all, given its share is capped.
 - The PICA200's texture size and format limits as citro3d exposes them, and how much VRAM the
   chunk meshes may take.
-- How complete the Rust citro3d bindings are (§10.1).
 - Whether 1.18+ world generation can run fast enough to keep ahead of walking (and flying) speed
   at a small render distance, and what to do when it can't.
 - How far back worlds are upgraded (§6.2).
@@ -246,6 +262,9 @@ emulator, per step.
   (§2.3); one Cargo feature per release (§5.6).
 - 2026-10-23 (user): features spelled `mc1_21_11`; development starts with §14 step 1 and `core`'s
   foundations (Java's random generators) in parallel.
+- 2026-10-23: the GPU through the `citro3d` Rust bindings, with `citro3d-sys` for what they lack
+  (§10.1), after step 1 drew a textured cube in stereo on a New 3DS at 60 frames a second;
+  threads on cores 2 and 3 (§4.4.1).
 
 ## 14. Steps
 

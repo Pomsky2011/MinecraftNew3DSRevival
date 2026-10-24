@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Early: the workspace skeleton exists and `n3dsr-core` has `JavaRandom` (`java.util.Random`,
-bit-exact). `DESIGN.md` is the spec (a draft, RFC 2119 MUST/SHOULD wording); `PARITY.md` lists
-deliberate deviations from Java Edition. In progress: `DESIGN.md` §14 step 1 (a ctru-rs app
-drawing a textured cube through citro3d) alongside `core`'s foundations on the PC.
+Early. `DESIGN.md` §14 step 1 is done: `n3dsr-client` draws a textured cube in stereo and prints
+a hardware probe (cores, memory) on the bottom screen. `n3dsr-core` has `JavaRandom`
+(`java.util.Random`, bit-exact). `DESIGN.md` is the spec (a draft, RFC 2119 MUST/SHOULD
+wording); `PARITY.md` lists deliberate deviations from Java Edition.
 
 ## Commands
 
@@ -19,8 +19,19 @@ cargo test --no-default-features --features mc1_X_Y   # another build base, once
 java tools/vectors/JavaRandomVectors.java > crates/core/tests/data/java_random.txt  # regenerate vectors
 ```
 
-The 3DS client needs devkitPro (`3ds-dev`, `$DEVKITPRO` set) and `cargo-3ds`; its commands go
-here once step 1 lands.
+The 3DS client needs devkitPro (`3ds-dev`) and `cargo-3ds`. devkitPro's env script doesn't put
+the ARM linker on `PATH`, so:
+
+```sh
+source /etc/profile.d/devkit-env.sh && export PATH=$DEVKITARM/bin:$PATH
+cargo 3ds build -p n3dsr-client --release    # target/armv6k-nintendo-3ds/release/n3dsr-client.3dsx
+flatpak run org.azahar_emu.Azahar "$PWD/target/armv6k-nintendo-3ds/release/n3dsr-client.3dsx"
+curl -u USER:PASS -T target/armv6k-nintendo-3ds/release/n3dsr-client.3dsx ftp://3DS_IP:5000/3ds/
+```
+
+The user tests on a real New 3DS (Luma3DS) by FTP to ftpd, then the Homebrew Launcher; check the
+target path is free before uploading. Trust hardware over Azahar for measurements (`DESIGN.md`
+§11.3). The toolchain is pinned in `rust-toolchain.toml`; don't bump it casually (§10.3).
 
 Test vectors come from running the real thing (the JDK, or later a vanilla jar) through small
 Java programs in `tools/vectors/`; their output is committed under `crates/*/tests/data/`, and
@@ -82,7 +93,7 @@ can't be called `core` without clashing with Rust's `core`):
 | `n3dsr-core` | 3DS + PC | The game itself: registries, chunks, world, entities, ticking, worldgen, saves. **Must contain no 3DS-specific code** so it builds and tests on a PC |
 | `n3dsr-protocol` | 3DS + PC | Java's packets as types and codecs |
 | `n3dsr-server` | 3DS + PC | Integrated server: `core` at 20 TPS, speaking `protocol` |
-| `n3dsr-client` | 3DS | citro3d rendering (via FFI or `citro3d` Rust bindings — undecided), input, `ndsp` sound, UI |
+| `n3dsr-client` | 3DS | Rendering through the `citro3d` Rust bindings (raw `citro3d-sys` for depth/alpha/blend state they don't wrap), input, `ndsp` sound, UI. Threads that must sit on a given core use libctru's `threadCreate`, since `std::thread` can't choose one; app threads go on cores 2 and 3 (`DESIGN.md` §4.4.1) |
 
 Singleplayer = client + integrated server in one process, exchanging `protocol` messages over an
 in-memory queue (as Java does). Multiplayer swaps the queue for a socket; nothing else changes —
