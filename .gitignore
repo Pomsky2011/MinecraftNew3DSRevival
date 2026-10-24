@@ -4,3 +4,9 @@
 *.3dsx
 *.cia
 *.smdh
+
+# The mod: Gradle and Loom output, the dev client's run folder, the Rust crate's build.
+/mod/.gradle
+/mod/build
+/mod/run
+/mod/rust/target

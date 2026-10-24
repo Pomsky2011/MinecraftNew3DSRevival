@@ -1,0 +1,55 @@
+// The ownership mod (DESIGN.md §3.1). Its logic is Rust, compiled to JVM bytecode by cargo-jvm
+// (§3.1.1); the Rust's classes go into this jar before Loom remaps it, so remapJar translates
+// their references to Minecraft's classes along with the Java's.
+
+plugins {
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+}
+
+def rustDir = file('rust')
+def rustJar = layout.buildDirectory.file('rust/n3dsr-export-rust.jar')
+
+// `cargo jvm package --lib` writes a self-contained jar: our classes and the runtime they need.
+def cargoJvm = tasks.register('cargoJvm', Exec) {
+	workingDir rustDir
+	inputs.dir(rustDir.toPath().resolve('src'))
+	inputs.file(rustDir.toPath().resolve('Cargo.toml'))
+	outputs.file(rustJar)
+	commandLine 'cargo', 'jvm', 'package', '--release', '--lib', '--output', rustJar.get().asFile.path
+}
+
+dependencies {
+	// For javac: the Rust's classes, which the Java calls.
+	implementation files(rustJar).builtBy(cargoJvm)
+}
+
+jar {
+	dependsOn cargoJvm
+	from(zipTree(rustJar)) {
+		exclude 'META-INF/**'
+	}
+	from('../LICENSE')
+}
+
+processResources {
+	def version = project.version
+	inputs.property 'version', version
+	filesMatching('fabric.mod.json') {
+		expand 'version': version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}

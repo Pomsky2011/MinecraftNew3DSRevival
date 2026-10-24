@@ -83,8 +83,15 @@ can call Java classes, so the Rust calls the game's own classes directly. Java o
 requires a JVM class of its own shape: entrypoints and mixins. Stonecutter builds the mod per
 release and switches its Java between releases; the Rust uses the same per-release Cargo
 features as `core` (§5.6). Before 26.1 the game's classes run under Fabric's intermediary names,
-so the Rust's jar is remapped to them with Fabric's tiny-remapper, as Loom remaps a Java mod's.
-Step 2a works out the plumbing (§14).
+and the Rust's classes go into the mod's jar before Loom's `remapJar`, which remaps them with the
+Java's. Proven by step 2a (2026-10-23): Rust bound to `BuiltInRegistries.BLOCK` and
+`DefaultedRegistry.size()` came out as `class_7923.field_41175` and `class_7922.method_10204`
+(`size` resolved through `IdMap`, where it's declared), and counted 1166 blocks in a 1.21.11
+client. The Rust compiles to Java 8 class files, so the same holds for the oldest releases.
+
+3.1.2. Two costs found by the spike, for later: `cargo jvm package` bundles the whole Rust
+standard library (a 17 MB jar of some 14,000 classes, most unused); and its runtime lives in
+`org.rustlang.*`, which would clash with another mod built the same way unless relocated (§12).
 
 3.2. **The converter (`n3dsr-build`, Rust, on the PC)** takes a proof file, checks the jar and
 asset index against the SHA-1s in it, and reads the game's files from where the player's launcher
@@ -247,10 +254,14 @@ rustc's unstable test internals, which changed twice between June and September 
 10.2. devkitPro's devkitARM, libctru and citro3d are build dependencies, as is the player's copy
 of Minecraft (§2.2).
 
-10.4. The export mod: Gradle with Fabric Loom (Legacy Fabric's and Ornithe's for their releases)
-and Stonecutter; the JDK each release needs (8 for 1.13 to 1.16, 16 for 1.17, 17 for 1.18 to
-1.20.4, 21 from 1.20.5, and what 26.x asks); `rustc_codegen_jvm` (`cargo-jvm`) with the nightly
-it pins, separate from the 3DS's (§10.3).
+10.4. The export mod: Gradle (9.7.1, by its wrapper) with Fabric Loom (Legacy Fabric's and
+Ornithe's for their releases) and Stonecutter. Gradle itself runs on JDK 25 or 26: Loom 1.18 needs
+25, and Gradle 9.7.1 can't read JDK 27's class files. The mod is compiled for the JDK each release
+needs (8 for 1.13 to 1.16, 16 for 1.17, 17 for 1.18 to 1.20.4, 21 from 1.20.5, and what 26.x
+asks). `rustc_codegen_jvm` (`cargo-jvm`) with the nightly it pins, separate from the 3DS's
+(§10.3); `cargo-jvm` installed from the backend's own checkout, and `rcj` (its interop macros)
+taken from Git at the backend's commit, since crates.io's copies of both lag the backend that
+`cargo jvm setup` clones.
 
 ## 11. Testing
 
@@ -280,6 +291,7 @@ emulator, per step. Hardware is the authority: Azahar reported nonsense for a th
   it, and the Usage Guidelines can be withdrawn without notice. A risk accepted, not solved. The
   name breaks the Usage Guidelines' naming rule ("Minecraft" mustn't be the dominant part of a
   title); kept by decision (§13).
+- Trimming the mod's Rust jar to what it uses, and relocating `org.rustlang.*` (§3.1.2).
 - Sign-in for online-mode servers (§9.2) still needs an Azure app Mojang has approved
   (`aka.ms/mce-reviewappid`); whether to apply, and when.
 - Which releases after 1.21.11 to follow, and how quickly; in what order the older build bases

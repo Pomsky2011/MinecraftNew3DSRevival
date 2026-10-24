@@ -29,6 +29,21 @@ flatpak run org.azahar_emu.Azahar "$PWD/target/armv6k-nintendo-3ds/release/n3dsr
 curl -u USER:PASS -T target/armv6k-nintendo-3ds/release/n3dsr-client.3dsx ftp://3DS_IP:5000/3ds/
 ```
 
+The mod (`mod/`), whose Rust is built by `cargo-jvm` (installed from its backend checkout,
+`~/.local/share/cargo-jvm/rustc_codegen_jvm`; see `DESIGN.md` §10.4). Gradle must run on JDK 25
+or 26, not 21 (Loom) or 27 (Gradle):
+
+```sh
+cd mod && JAVA_HOME=/usr/lib/jvm/java-25-openjdk ./gradlew build      # build/libs/n3dsr-export-*.jar (remapped)
+cd mod && JAVA_HOME=/usr/lib/jvm/java-25-openjdk ./gradlew runClient  # dev client; the mod logs to "n3dsr-export"
+cd mod/rust && cargo jvm build --release                              # the Rust alone
+```
+
+Rust binds Minecraft with `rcj`'s `#[jvm::class]`/`#[jvm::interface]`, in Mojang's names; a
+static field must be declared with its exact declared type (e.g. `DefaultedRegistry`, not
+`Registry`). Java reaches the Rust as `n3dsr_export.n3dsr_export.<fn>`. Check remapping with
+`javap -v` on the class inside `build/libs/*.jar`: Minecraft references must be `class_NNNN`.
+
 The user tests on a real New 3DS (Luma3DS) by FTP to ftpd, then the Homebrew Launcher; check the
 target path is free before uploading. Trust hardware over Azahar for measurements (`DESIGN.md`
 §11.3). The toolchain is pinned in `rust-toolchain.toml`; don't bump it casually (§10.3).

@@ -1,0 +1,18 @@
+[package]
+name = "n3dsr-export"
+description = "The ownership mod's logic, compiled to JVM bytecode by cargo-jvm (DESIGN.md §3.1.1)"
+version = "0.0.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+publish = false
+
+# Its own workspace: it builds with cargo-jvm's pinned nightly, not the 3DS's (DESIGN.md §10.4).
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# From Git at the backend's commit: crates.io's rcj lags it (no `#[jvm::interface]` in 0.1.1), and
+# the macros must emit what this backend understands. Move with `cargo jvm update`.
+jvm = { package = "rcj", git = "https://github.com/IntegralPilot/rustc_codegen_jvm", rev = "67e89c1b1e6ace5837da7d0a818ecde0c0660638" }
