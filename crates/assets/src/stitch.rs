@@ -82,6 +82,9 @@ pub struct Stitched {
     pub levels: u32,
 }
 
+/// A page being filled: its format, its shelves, and which tile went where.
+type OpenPage = (Format, Shelves, Vec<(usize, u32, u32)>);
+
 /// One frame of one sprite at every level.
 struct Tile {
     sprite: usize,
@@ -160,7 +163,7 @@ pub fn stitch(sprites: &[Sprite], levels: u32) -> Stitched {
         ))
     });
 
-    let mut pages: Vec<(Format, Shelves, Vec<(usize, u32, u32)>)> = Vec::new();
+    let mut pages: Vec<OpenPage> = Vec::new();
     for (tile_index, tile) in tiles.iter().enumerate() {
         let sprite = &sprites[tile.sprite];
         let (w, h) = (
@@ -259,7 +262,7 @@ pub fn allowed_levels(sprites: &[Sprite], wanted: u32) -> u32 {
 }
 
 fn lowest_one_bit(n: u32) -> u32 {
-    n & n.wrapping_neg()
+    n.isolate_lowest_one()
 }
 
 fn round_up(n: u32, to: u32) -> u32 {
