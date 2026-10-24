@@ -2,7 +2,7 @@
 //! as 1.21.11's `SpriteSourceList` and its sources gather them (reimplemented). Packing them into
 //! pages is `pack`'s; this decides which sprites there are.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 
 use regex::Regex;
@@ -18,6 +18,9 @@ pub struct Atlas {
     pub name: String,
     pub sprites: Vec<Sprite>,
     pub notes: Vec<String>,
+    /// Every texture file the atlas read, as (namespace, path): what isn't here is drawn on its
+    /// own (`standalone`).
+    pub files: BTreeSet<(String, String)>,
 }
 
 pub const MISSING: &str = "minecraft:missingno";
@@ -76,6 +79,7 @@ type Palette = Result<BTreeMap<u32, u32>, String>;
 
 pub fn load(stack: &Stack, name: &str) -> io::Result<Atlas> {
     let mut notes = Vec::new();
+    let mut files = BTreeSet::new();
     let mut pending = BTreeMap::new();
     let mut palettes: Vec<Palette> = Vec::new();
 
@@ -91,12 +95,22 @@ pub fn load(stack: &Stack, name: &str) -> io::Result<Atlas> {
             continue;
         };
         for source in &sources {
-            if let Err(e) = run(stack, source, &mut pending, &mut palettes) {
+            if let Err(e) = run(stack, source, &mut pending, &mut palettes, &mut files) {
                 notes.push(format!("atlases/{name}.json: {e}"));
             }
         }
     }
 
+    for how in pending.values() {
+        let (Pending::File { namespace, path }
+        | Pending::Region {
+            namespace, path, ..
+        }
+        | Pending::Paletted {
+            namespace, path, ..
+        }) = how;
+        files.insert((namespace.clone(), path.clone()));
+    }
     let mut sprites = vec![missing()];
     for (id, how) in pending {
         match load_pending(stack, id.clone(), how, &palettes) {
@@ -108,6 +122,7 @@ pub fn load(stack: &Stack, name: &str) -> io::Result<Atlas> {
         name: name.to_owned(),
         sprites,
         notes,
+        files,
     })
 }
 
@@ -118,6 +133,7 @@ fn run(
     source: &Value,
     pending: &mut BTreeMap<Id, Pending>,
     palettes: &mut Vec<Palette>,
+    used: &mut BTreeSet<(String, String)>,
 ) -> Result<(), String> {
     let kind = source
         .get("type")
@@ -225,7 +241,9 @@ fn run(
                 .get("textures")
                 .and_then(Value::as_array)
                 .ok_or("paletted_permutations has no textures")?;
-            let key = palette(stack, string("palette_key")?);
+            let key_id = string("palette_key")?;
+            used.insert(texture_file(key_id));
+            let key = palette(stack, key_id);
             let separator = source
                 .get("separator")
                 .and_then(Value::as_str)
@@ -236,7 +254,9 @@ fn run(
                 .ok_or("paletted_permutations has no permutations")?;
             let mut mapped = Vec::new();
             for (suffix, colours) in permutations {
-                let colours = palette(stack, colours.as_str().ok_or("a permutation isn't an id")?);
+                let colours_id = colours.as_str().ok_or("a permutation isn't an id")?;
+                used.insert(texture_file(colours_id));
+                let colours = palette(stack, colours_id);
                 palettes.push(mapping(&key, &colours));
                 mapped.push((suffix.clone(), palettes.len() - 1));
             }

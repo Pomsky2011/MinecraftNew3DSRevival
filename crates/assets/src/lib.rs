@@ -12,4 +12,5 @@ pub mod source;
 pub mod sprite;
 mod srgb_tables;
 pub mod stack;
+pub mod standalone;
 pub mod stitch;

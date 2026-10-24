@@ -5,6 +5,7 @@ mod icon;
 mod proof;
 mod release;
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -14,7 +15,7 @@ use clap::Parser;
 use n3dsr_assets::pack::Pack;
 use n3dsr_assets::source::{AssetIndex, Layered, Zip};
 use n3dsr_assets::stack::Stack;
-use n3dsr_assets::{atlas, options, pica, stitch};
+use n3dsr_assets::{atlas, options, pica, standalone, stitch};
 use proof::Proof;
 
 /// The repository, which a player builds from: converted assets go in its gitignored `assets/`.
@@ -57,7 +58,8 @@ fn pack_stack(proof: &Proof) -> Result<Stack> {
 
 /// Every atlas the game builds, packed into GPU pages with their index, and previews of each page
 /// (DESIGN.md §3.6).
-fn atlases(stack: &Stack, out: &Path) -> Result<()> {
+fn atlases(stack: &Stack, out: &Path) -> Result<BTreeSet<(String, String)>> {
+    let mut in_atlases = BTreeSet::new();
     let romfs = out.join("romfs/atlases");
     let preview = out.join("preview");
     fs::create_dir_all(&romfs)?;
@@ -65,6 +67,7 @@ fn atlases(stack: &Stack, out: &Path) -> Result<()> {
     println!("Atlases:");
     for &(name, mipmaps) in atlas::KNOWN {
         let atlas = atlas::load(stack, name)?;
+        in_atlases.extend(atlas.files.iter().cloned());
         let wanted = if mipmaps { MIP_LEVELS } else { 0 };
         let stitched = stitch::stitch(&atlas.sprites, wanted);
         let pages: Vec<String> = stitched
@@ -112,6 +115,49 @@ fn atlases(stack: &Stack, out: &Path) -> Result<()> {
         )?;
     }
     println!("Previews: {}", preview.display());
+    Ok(in_atlases)
+}
+
+/// Every texture no atlas took, as a GPU texture of its own, with an index; and the colour maps
+/// as data too (DESIGN.md §3.6).
+fn standalone(stack: &Stack, out: &Path, in_atlases: &BTreeSet<(String, String)>) -> Result<()> {
+    let romfs = out.join("romfs");
+    let mut index = serde_json::Map::new();
+    let (mut count, mut bytes) = (0, 0);
+    for (namespace, path) in stack.list_all("textures")? {
+        if !path.ends_with(".png") || in_atlases.contains(&(namespace.clone(), path.clone())) {
+            continue;
+        }
+        let texture = match standalone::load(stack, &namespace, &path) {
+            Ok(texture) => texture,
+            Err(note) => {
+                println!("  note: {note}");
+                continue;
+            }
+        };
+        let file = romfs
+            .join("textures")
+            .join(&namespace)
+            .join(&path)
+            .with_extension("bin");
+        fs::create_dir_all(file.parent().unwrap())?;
+        let data = texture.page.to_bytes();
+        bytes += data.len();
+        fs::write(&file, data)?;
+        if path.starts_with(standalone::COLORMAP_DIR) {
+            let raw = romfs
+                .join("colormap")
+                .join(&namespace)
+                .join(&path[standalone::COLORMAP_DIR.len()..])
+                .with_extension("rgb");
+            fs::create_dir_all(raw.parent().unwrap())?;
+            fs::write(raw, standalone::colormap_rgb(&texture.page.levels[0]))?;
+        }
+        index.insert(texture.id, serde_json::to_value(texture.entry)?);
+        count += 1;
+    }
+    fs::write(romfs.join("textures.json"), serde_json::to_vec(&index)?)?;
+    println!("Standalone textures: {count}, {:.1} MB", bytes as f64 / 1e6);
     Ok(())
 }
 
@@ -150,6 +196,7 @@ fn main() -> Result<()> {
         client_icon.display()
     );
 
-    atlases(&stack, &out)?;
+    let in_atlases = atlases(&stack, &out)?;
+    standalone(&stack, &out, &in_atlases)?;
     Ok(())
 }
